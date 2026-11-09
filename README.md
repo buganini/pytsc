@@ -238,6 +238,9 @@ arguments are not accepted by the CUPS API.
 `pytsc discover` and Python `discover()` scan both serial and CUPS by default.
 Each record includes its `backend`; failures of one backend appear as warnings
 without discarding results from the other. Explicit `-b` or `PYTSC_BACKEND` restricts
-the CLI scan. Printing still defaults to serial; use `-b cups` for USB/CUPS.
+the CLI scan. Printing automatically selects CUPS for `usb://` and `cups://` identifiers,
+and serial otherwise. Bare CUPS queue names require `-b cups`. Explicit `-b` or
+`PYTSC_BACKEND` takes precedence over inference. Python `Printer` and `send()`
+use the same inference when no backend is provided.
 Discovery never creates queues. USB queue resolution/creation happens only when
 sending a nonempty job; no print job is submitted if setup or verification fails.

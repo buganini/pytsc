@@ -10,6 +10,7 @@ import click
 from . import TSPLRaster, __version__, convert, discover, send
 from .analyze import analyze as inspect_job
 from .analyze import bitmap_image
+from .backends.helpers import resolve_backend
 from .conversion import prepare_image
 from .errors import PrintError
 from .labels import LabelsManager
@@ -41,9 +42,9 @@ def emit(value, as_json):
     "-b",
     "--backend",
     type=click.Choice(["serial", "cups"]),
-    default="serial",
+    default=None,
     envvar="PYTSC_BACKEND",
-    show_default="serial for printing; all for discovery",
+    show_default="infer from printer; all for discovery",
 )
 @click.option(
     "-m",
@@ -93,20 +94,21 @@ def transmit(ctx, data, as_json):
     options = ctx.obj
     if not options["printer"]:
         raise ValueError("Use --printer or PYTSC_PRINTER to select a printer")
+    backend = resolve_backend(options["printer"], options["backend"])
     if options["debug"]:
         click.echo(
-            f"Submitting {len(data)} bytes to {options['printer']} via {options['backend']}",
+            f"Submitting {len(data)} bytes to {options['printer']} via {backend}",
             err=True,
         )
     transport_options = {"timeout": options["timeout"]}
-    if options["backend"] == "serial":
+    if backend == "serial":
         transport_options.update(
             baudrate=options["baudrate"],
             parity=options["parity"],
             stopbits=int(options["stopbits"]),
             flow_control=options["flow_control"],
         )
-    result = send(data, options["printer"], options["backend"], **transport_options)
+    result = send(data, options["printer"], backend, **transport_options)
     if as_json:
         emit(result, True)
     else:
@@ -123,9 +125,7 @@ def transmit(ctx, data, as_json):
 @errors
 def discover_command(ctx, as_json):
     """List serial ports, or CUPS queues and unconfigured devices."""
-    source = ctx.parent.get_parameter_source("backend")
-    backend = None if source == click.core.ParameterSource.DEFAULT else ctx.obj["backend"]
-    emit(discover(backend), as_json)
+    emit(discover(ctx.obj["backend"]), as_json)
 
 
 @cli.command("info")

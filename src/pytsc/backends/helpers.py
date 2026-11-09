@@ -4,7 +4,21 @@ from .serial import SerialBackend
 from .serial import discover as discover_serial
 
 
-def open_backend(identifier, backend_identifier="serial", **options):
+def resolve_backend(identifier, backend_identifier=None):
+    """Explicit selection wins; recognize CUPS URI schemes, otherwise use serial."""
+    if backend_identifier is not None:
+        if backend_identifier not in ("serial", "cups"):
+            raise ValueError(f"Unknown backend: {backend_identifier}")
+        return backend_identifier
+    return (
+        "cups"
+        if isinstance(identifier, str) and identifier.startswith(("usb://", "cups://"))
+        else "serial"
+    )
+
+
+def open_backend(identifier, backend_identifier=None, **options):
+    backend_identifier = resolve_backend(identifier, backend_identifier)
     if backend_identifier == "serial":
         return SerialBackend(identifier, **options)
     if backend_identifier == "cups":
@@ -28,7 +42,7 @@ def discover(backend_identifier=None):
     return records
 
 
-def send(instructions, printer_identifier, backend_identifier="serial", blocking=True, **options):
+def send(instructions, printer_identifier, backend_identifier=None, blocking=True, **options):
     """Wait for transport submission, not confirmed physical printing."""
     if not blocking:
         raise ValueError("Background sending is not implemented")

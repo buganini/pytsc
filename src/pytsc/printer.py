@@ -6,7 +6,7 @@ from .raster import TSPLRaster
 class Printer:
     """Reusable transport session. Prefer a with statement to close reliably."""
 
-    def __init__(self, identifier, model="TTP-342", backend="serial", **transport_options):
+    def __init__(self, identifier, model="TTP-342", backend=None, **transport_options):
         self.raster = TSPLRaster(model)
         self.identifier = identifier
         self.backend_identifier = backend

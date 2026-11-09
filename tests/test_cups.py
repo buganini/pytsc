@@ -158,3 +158,20 @@ def test_usb_collision_does_not_modify_queue(monkeypatch):
     with pytest.raises(RuntimeError, match="collision"):
         CUPSBackend(uri).send(b"CLS\r\n")
     assert run.call_count == 1
+
+
+def test_api_infers_cups_backend(monkeypatch):
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", Mock(return_value=completed()))
+    assert send(b"CLS\r\n", "cups://TSC")["outcome"] == "queued"
+    with Printer("cups://TSC") as printer:
+        assert printer.send(b"CLS\r\n")["outcome"] == "queued"
+
+
+def test_backend_resolution():
+    from pytsc.backends.helpers import resolve_backend
+
+    for identifier in ("/dev/cu.usbserial-1", "serial:///dev/ttyUSB0", "COM3"):
+        assert resolve_backend(identifier) == "serial"
+    for identifier in ("usb://Unknown/Printer", "cups://TSC"):
+        assert resolve_backend(identifier) == "cups"
+    assert resolve_backend("usb://Unknown/Printer", "serial") == "serial"
