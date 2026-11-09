@@ -48,6 +48,7 @@ def test_env_and_models():
 def test_discover_all_and_explicit_backend(monkeypatch):
     from pytsc.backends import helpers
 
+    monkeypatch.setattr(helpers, "discover_usb", lambda: [])
     monkeypatch.setattr(helpers, "discover_serial", lambda: [{"identifier": "COM3"}])
     monkeypatch.setattr(helpers, "discover_cups", lambda: [{"identifier": "cups://TSC"}])
     runner = CliRunner()
@@ -65,6 +66,7 @@ def test_discover_all_and_explicit_backend(monkeypatch):
 def test_discover_all_retains_partial_results(monkeypatch):
     from pytsc.backends import helpers
 
+    monkeypatch.setattr(helpers, "discover_usb", lambda: [])
     monkeypatch.setattr(helpers, "discover_serial", lambda: [{"identifier": "COM3"}])
 
     def fail():

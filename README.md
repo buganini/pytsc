@@ -337,3 +337,35 @@ verified USB fix. Dithered images can generate many commands and larger files; t
 full 102 × 76.2 mm test image produces approximately 392 KB of ASCII commands.
 No automatic pacing/retry is added. Offline tests reconstruct all BAR rectangles
 and compare every pixel against the prepared image.
+
+## Experimental direct USB (PL2305 only)
+
+Install `python -m pip install -e '.[usb]'` and system libusb (on macOS, Homebrew
+`libusb`). This optional backend targets only VID:PID `067b:2305`. It claims the
+printer-class **unidirectional** alternate setting and bulk OUT endpoint, performs
+a printer-class soft reset before sending, and uses 512-byte writes with a 10 ms
+gap. These are experimental transport settings, not measured printer limits.
+
+```sh
+pytsc -b pyusb discover --json
+pytsc -p pyusb://067b:2305 --timeout 20 send examples/diagnostics/d-bar-bitmap.tspl
+```
+
+Use `pyusb://067b:2305/BUS/ADDRESS` if multiple adapters are attached. USB bus/address
+may change on reconnection. Existing `usb://...` identifiers still mean CUPS;
+`pyusb://...` selects direct access. Default discovery includes optional pyusb and
+reports missing dependencies as a warning without suppressing other backends.
+
+Global options: `--usb-chunk-size`, `--usb-write-delay-ms`, and
+`--usb-soft-reset/--no-usb-soft-reset`. Python `send`/`Printer` accept `chunk_size`,
+`write_delay` (seconds), and `soft_reset` with backend `pyusb`. Stop/cancel CUPS jobs
+for this device before direct access. The backend does not delete queues, detach
+system drivers, replay failed bytes, or perform a whole-device reset.
+
+The upstream PL2305 quirk inspired this experiment, but is **not implemented
+identically**: we reset before sending and do not reset immediately afterward,
+since an immediate reset can discard pending data. Partial writes are handled;
+errors report known acknowledged bytes and invalidate the session. `sent` means
+USB writes completed, not physical printing. The installed macOS/libusb test
+claimed interface 0, alternate 0, endpoint 0x01 successfully, but soft reset and
+clear-halt returned Pipe error. No direct-USB printed output is verified yet.

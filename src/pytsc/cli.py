@@ -41,7 +41,7 @@ def emit(value, as_json):
 @click.option(
     "-b",
     "--backend",
-    type=click.Choice(["serial", "cups"]),
+    type=click.Choice(["serial", "cups", "pyusb"]),
     default=None,
     envvar="PYTSC_BACKEND",
     show_default="infer from printer; all for discovery",
@@ -87,6 +87,9 @@ def emit(value, as_json):
     help="Recreate the target USB CUPS queue before each send; removes pending jobs.",
     show_default=True,
 )
+@click.option("--usb-chunk-size", type=click.IntRange(1, 65536), default=512)
+@click.option("--usb-write-delay-ms", type=click.FloatRange(min=0), default=10)
+@click.option("--usb-soft-reset/--no-usb-soft-reset", default=True)
 @click.option("--debug", is_flag=True, help="Log transmission size and port to stderr.")
 @click.version_option(__version__)
 @click.pass_context
@@ -116,6 +119,12 @@ def transmit(ctx, data, as_json):
         )
     if backend == "cups":
         transport_options["recreate_queue"] = options["recreate_cups_queue"]
+    if backend == "pyusb":
+        transport_options.update(
+            chunk_size=options["usb_chunk_size"],
+            write_delay=options["usb_write_delay_ms"] / 1000,
+            soft_reset=options["usb_soft_reset"],
+        )
     result = send(data, options["printer"], backend, **transport_options)
     if as_json:
         emit(result, True)

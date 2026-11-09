@@ -148,3 +148,16 @@ is not claimed to repair the underlying USB endpoint stalls.
 The PL2305 transport workaround is the strongest new lead. It motivates testing
 unidirectional USB access and reset handling in a separately controlled backend,
 not claiming a proven TSPL encoder defect or blindly changing macOS system drivers.
+
+
+### Direct USB experiment
+
+Canceled stalled CUPS job 35 before direct access. Device descriptors show:
+configuration 1/interface 0/alternate 0 = printer class, protocol 1, OUT 0x01;
+alternate 1 = protocol 2 with IN 0x82; alternate 2 is vendor-specific.
+System libusb and pyusb successfully claimed the unidirectional alternate.
+Sending D with pre-send soft reset failed with 0 acknowledged bytes. Follow-up
+control-only probes confirmed both recipient 0x23 and 0x21 soft resets and
+`clear_halt(0x01)` returned Pipe error. No payload was sent in this attempt.
+No system drivers were detached or changed. Optional backend is experimental;
+it does not yet establish a workaround for the adapter/connection fault.
