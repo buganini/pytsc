@@ -313,3 +313,27 @@ pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=114
 strips for this example, each at most 19,200 bytes, followed by a single PRINT.
 This is a diagnostic comparison, not a verified firmware workaround. It does not
 pace USB transfers, reduce total image memory, or fix an incorrect row width.
+
+## ASCII BAR image encoding
+
+`--raster-mode bar` renders the same monochrome pixels using ASCII `BAR` commands
+instead of binary `BITMAP`. Identical horizontal black runs are merged vertically
+to reduce command count. Image preparation, rotation, scaling, threshold and
+Floyd–Steinberg dithering are unchanged. Bitmap remains the default.
+
+```sh
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' \
+  print -l 102x76.2 --gap 3 --fit contain --dither --raster-mode bar examples/test-label.png
+```
+
+Python: `convert(..., raster_mode="bar")` or
+`printer.print_image(..., raster_mode="bar")`. Low-level `TSPLRaster.bars(image)`
+accepts mode-1 images and optional x/y coordinates; white pixels are transparent,
+so clear the label first. The conversion API clears it automatically.
+`--bitmap-rows` must remain 0 for BAR mode.
+
+This is an experimental alternative for diagnosing binary-data corruption, not a
+verified USB fix. Dithered images can generate many commands and larger files; the
+full 102 × 76.2 mm test image produces approximately 392 KB of ASCII commands.
+No automatic pacing/retry is added. Offline tests reconstruct all BAR rectangles
+and compare every pixel against the prepared image.

@@ -187,6 +187,13 @@ def image_options(fn):
             ),
             click.option("-d", "--dither", is_flag=True),
             click.option(
+                "--raster-mode",
+                type=click.Choice(["bitmap", "bar"]),
+                default="bitmap",
+                help="Binary BITMAP or ASCII BAR image encoding.",
+                show_default=True,
+            ),
+            click.option(
                 "--bitmap-rows",
                 type=click.IntRange(0, 65535),
                 default=0,
@@ -224,7 +231,7 @@ def image_options(fn):
 @click.pass_context
 @errors
 def print_command(ctx, images, label, as_json, **options):
-    """Print IMAGE [IMAGE] ... as one-bit TSPL bitmaps."""
+    """Print IMAGE [IMAGE] ... using monochrome TSPL image commands."""
     if not ctx.obj["printer"]:
         raise ValueError("Use --printer or PYTSC_PRINTER to select a printer")
     data = convert(TSPLRaster(ctx.obj["model"]), images, label, **options)

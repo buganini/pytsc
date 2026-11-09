@@ -55,9 +55,14 @@ def convert(
     direction=1,
     speed=None,
     bitmap_rows=0,
+    raster_mode="bitmap",
 ):
     """Return raw TSPL bytes and replace raster.data only after successful conversion."""
     integer(copies, "copies", 1)
+    if raster_mode not in ("bitmap", "bar"):
+        raise ValueError("raster_mode must be bitmap or bar")
+    if raster_mode == "bar" and bitmap_rows != 0:
+        raise ValueError("bitmap_rows does not apply to BAR output")
     label = LabelsManager().get_label_by_identifier(label)
     job = TSPLRaster(raster.model.identifier)
     job.setup(label, gap=gap, media=media, density=density, direction=direction, speed=speed)
@@ -71,7 +76,12 @@ def convert(
             dither=dither,
             fit=fit,
         )
-        job.clear().bitmap(image, rows=bitmap_rows).print_label(copies)
+        job.clear()
+        if raster_mode == "bar":
+            job.bars(image)
+        else:
+            job.bitmap(image, rows=bitmap_rows)
+        job.print_label(copies)
         count += 1
     if not count:
         raise ValueError("At least one image is required")

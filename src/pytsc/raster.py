@@ -92,6 +92,45 @@ class TSPLRaster:
             )
         return self
 
+    def bars(self, image, x=0, y=0):
+        """Render black pixels with ASCII BARs, merging equal runs vertically.
+
+        White pixels are transparent; call clear() first for a fresh label.
+        """
+        integer(x, "x")
+        integer(y, "y")
+        if image.mode != "1":
+            raise ValueError("BAR raster requires a monochrome mode-1 image")
+        integer(x + image.width - 1, "last BAR column")
+        integer(y + image.height - 1, "last BAR row")
+        pixels = image.load()
+        active = {}
+        commands = []
+
+        def emit(run, start, end):
+            left, width = run
+            commands.append(f"BAR {x + left},{y + start},{width},{end - start}\r\n")
+
+        for row in range(image.height):
+            runs = set()
+            col = 0
+            while col < image.width:
+                if pixels[col, row]:
+                    col += 1
+                    continue
+                start = col
+                while col < image.width and not pixels[col, row]:
+                    col += 1
+                runs.add((start, col - start))
+            for run in sorted(active.keys() - runs):
+                emit(run, active.pop(run), row)
+            for run in sorted(runs):
+                active.setdefault(run, row)
+        for run in sorted(active):
+            emit(run, active[run], image.height)
+        self.data += "".join(commands).encode("ascii")
+        return self
+
     def text(self, x, y, text, font="3", rotation=0, x_mul=1, y_mul=1):
         integer(x, "x")
         integer(y, "y")

@@ -105,3 +105,18 @@ target USB queue before each job. Pending jobs/custom settings are discarded.
 This is an explicitly requested recovery experiment; no successful repeated-job
 hardware evidence has yet established that recreation fixes endpoint stalls or
 bitmap corruption. Serial, discovery and status operations are unaffected.
+
+### ASCII raster alternative
+
+Subsequent user photos of the same D test show its native BAR pattern largely
+stable while the 7,200-byte BITMAP changes shape between attempts/resets. This
+makes a deterministic width-only explanation insufficient. Windows comparison
+is unavailable. Neither binary transport nor firmware parsing has been isolated.
+
+Implemented optional ASCII BAR raster encoding with vertical run merging. The
+full dithered test image at 102 × 76.2 mm, gap 3 mm, yields 392,232 total bytes.
+Offline rectangle reconstruction matches every prepared image pixel. Submitted
+one copy as job 31. Despite recreating the queue, CUPS logged USB pipe stalled
+during write and `Sent 0 bytes`; the job left the queue with a transport error.
+No BAR-image hardware result was obtained and no retry was performed. This mode
+is not claimed to repair the underlying USB endpoint stalls.
