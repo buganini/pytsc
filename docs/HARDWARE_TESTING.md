@@ -79,3 +79,19 @@ This is evidence of a USB transport stall for job 25, not a bitmap rendering
 result. It does not establish why earlier partially corrupted labels occurred.
 The job is no longer pending and was not automatically resent. Next isolate USB
 adapter state by unplugging/reconnecting it before retrying D as the first job.
+
+### Small BITMAP visual success
+
+The user subsequently supplied a D photo with matching native BAR and BITMAP
+patterns: horizontal/vertical geometry, square position and polarity agree.
+Small breaks are visible in the native pattern. This establishes successful
+240 × 240 dot / 7,200-byte BITMAP rendering in that run, not reliable USB transport
+or compatibility with larger images. The exact reset sequence was not recorded.
+
+Prepared E480/E720: fixed 240-dot width and increased heights, with 14,400/21,600
+bitmap bytes. Before sending these, repeated D as job 28 to isolate consecutive-job
+behavior from increasing payload size.
+Job 28 reported `The printer is offline` and remained pending. It was canceled;
+E480/E720 were not sent. The same small job can therefore fail on a subsequent
+attempt without increasing bitmap dimensions or bytes. This is evidence of an
+independent connection-state/repeatability issue, not proof of its underlying cause.

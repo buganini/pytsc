@@ -56,3 +56,20 @@ If both lose horizontal strokes, investigate print quality or shared printer
 behavior rather than only bitmap encoding. If only the bitmap breaks, binary
 handling remains suspect even at this smaller payload. Neither result alone
 identifies the failing layer.
+
+## E: fixed-width height comparison
+
+`e-240x480.tspl` and `e-240x720.tspl` keep bitmap width at 240 dots (30 bytes
+per row), with 480 and 720 rows respectively. Payloads are 14,400 and 21,600
+bytes. Both use one BITMAP at (72,150), SIZE 102 × 76.2 mm, GAP 3 mm and one PRINT.
+The PNGs show the repeated grid and square markers. All marks fit on this stock.
+
+First repeat D without resetting the printer/adapter to check consecutive-job
+behavior. If it fails, do not proceed with E: resolve the connection state first.
+Otherwise send E480, inspect the physical result, then E720. Record resets and
+job order; CUPS queue completion alone does not validate the image.
+
+```sh
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' send examples/diagnostics/e-240x480.tspl
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' send examples/diagnostics/e-240x720.tspl
+```
