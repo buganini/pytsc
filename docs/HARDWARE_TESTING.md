@@ -56,3 +56,26 @@ the printer's documented procedure before sending another job.
 Firmware version, measured printhead resolution, actual media calibration, print
 speed and thermal media/ribbon configuration are not yet recorded. Keep
 `hardware_verified=False` until basic geometry and repeatability are validated.
+
+### Native control photo and small-bitmap comparison
+
+After restarting the printer, the user sent C and supplied a photo. All four text
+rows and the three vertical bars appear in their expected relative positions,
+without the earlier horizontal fragmentation. Horizontal BOX edges are faint or
+missing, so print quality is not validated. This supports working basic native
+command interpretation but does not validate bulk binary transfer.
+
+D compares identical native BAR and 240 × 240 dot BITMAP patterns on one label.
+BITMAP payload is 7,200 bytes; the entire job is 7,787 bytes. Prepared and submitted
+as job 25. CUPS USB backend failed before reporting any bytes sent:
+
+- `CONTENT_TYPE=application/vnd.cups-raw`: raw submission reached the backend.
+- `Read 7787 bytes of print data...`
+- `Got USB pipe stalled during write`
+- `USB class driver WritePipe returned e000404f`
+- `Sent 0 bytes...`
+
+This is evidence of a USB transport stall for job 25, not a bitmap rendering
+result. It does not establish why earlier partially corrupted labels occurred.
+The job is no longer pending and was not automatically resent. Next isolate USB
+adapter state by unplugging/reconnecting it before retrying D as the first job.
