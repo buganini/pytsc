@@ -201,7 +201,14 @@ If device discovery requires privileges, is unavailable or times out, queue resu
 remain visible with a warning record. Discovery never creates a queue or prints.
 
 For the reported device `usb://Unknown/IEEE-1284%20Controller?location=1140000`,
-create a queue first if none exists. On CUPS versions supporting raw queues:
+you can print directly (queue setup is automatic when permitted):
+
+```sh
+pytsc -b cups -p 'usb://Unknown/IEEE-1284%20Controller?location=1140000' \
+  print -l 50x30 --gap 2 examples/test-label.png
+```
+
+Alternatively, manually create a queue on CUPS versions supporting raw queues:
 
 ```sh
 sudo lpadmin -p TTP342 -E -v 'usb://Unknown/IEEE-1284%20Controller?location=1140000' -m raw
@@ -209,11 +216,13 @@ pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 examples/test-label.pn
 # Equivalently: -p cups://TTP342
 ```
 
-Queue setup is an explicit administrator action, not performed by this library.
+When passing a USB URI to print/send, pytsc reuses an exactly matching queue or
+creates a persistent raw queue named `pytsc_<URI hash>` and verifies its device URI.
+It never invokes sudo automatically. Permission errors include the exact setup
+command; unsupported raw queues require system printer configuration.
 Raw queues are deprecated in newer CUPS; if your version rejects them, configure
 a suitable queue using system printer settings and verify it accepts raw TSPL.
-The device URI can change when moving USB ports. `-p` accepts a queue name, not
-an unconfigured `usb://` URI. Baud rate and serial handshaking do not apply to CUPS.
+The device URI can change when moving USB ports. `-p` accepts a queue name, `cups://QUEUE`, or an encoded `usb://` URI. Baud rate and serial handshaking do not apply to CUPS.
 
 Submission uses `lp -d QUEUE -n 1 -o raw -o job-sheets=none,none -- -`, passing
 TSPL bytes on stdin without shell interpretation or document conversion. Copies
@@ -225,3 +234,10 @@ printer receipt or physical printing. On a submission timeout/failure, inspect
 Python: `Printer("TTP342", backend="cups")`, or
 `send(data, "TTP342", backend_identifier="cups")`. Serial-specific keyword
 arguments are not accepted by the CUPS API.
+
+`pytsc discover` and Python `discover()` scan both serial and CUPS by default.
+Each record includes its `backend`; failures of one backend appear as warnings
+without discarding results from the other. Explicit `-b` or `PYTSC_BACKEND` restricts
+the CLI scan. Printing still defaults to serial; use `-b cups` for USB/CUPS.
+Discovery never creates queues. USB queue resolution/creation happens only when
+sending a nonempty job; no print job is submitted if setup or verification fails.

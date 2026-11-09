@@ -43,7 +43,7 @@ def emit(value, as_json):
     type=click.Choice(["serial", "cups"]),
     default="serial",
     envvar="PYTSC_BACKEND",
-    show_default=True,
+    show_default="serial for printing; all for discovery",
 )
 @click.option(
     "-m",
@@ -57,7 +57,7 @@ def emit(value, as_json):
     "-p",
     "--printer",
     envvar="PYTSC_PRINTER",
-    help="Serial device path / COM3, or CUPS queue name / cups://QUEUE.",
+    help="Serial device path / COM3, or CUPS queue name / cups://QUEUE / usb://URI.",
 )
 @click.option(
     "--baudrate",
@@ -123,7 +123,9 @@ def transmit(ctx, data, as_json):
 @errors
 def discover_command(ctx, as_json):
     """List serial ports, or CUPS queues and unconfigured devices."""
-    emit(discover(ctx.obj["backend"]), as_json)
+    source = ctx.parent.get_parameter_source("backend")
+    backend = None if source == click.core.ParameterSource.DEFAULT else ctx.obj["backend"]
+    emit(discover(backend), as_json)
 
 
 @cli.command("info")

@@ -1,9 +1,12 @@
 """CUPS command-line transport for macOS/Linux; raw jobs bypass document filters."""
 
+import hashlib
 import math
 import os
 import re
+import shlex
 import subprocess
+from urllib.parse import urlsplit
 
 from ..errors import PrintError
 
@@ -25,8 +28,8 @@ def _run(arguments, *, timeout=15, data=None):
         ) from exc
 
 
-def discover():
-    """List queues and unconfigured devices. Partial discovery reports warnings."""
+def _queues():
+    """Read queues without triggering slow device discovery."""
     records = []
     try:
         queues = _run(["lpstat", "-v"])
@@ -51,6 +54,13 @@ def discover():
                     printable=True,
                 )
             )
+    return records
+
+
+def discover():
+    """List queues and unconfigured devices. Partial discovery reports warnings."""
+    records = _queues()
+    known = {row["device_uri"] for row in records}
     try:
         devices = _run(["lpinfo", "-v"], timeout=20)
         if devices.returncode:
@@ -73,12 +83,53 @@ def discover():
     return records
 
 
+def _resolve_usb(uri):
+    queues = _queues()
+    matches = sorted(row["queue"] for row in queues if row["device_uri"] == uri)
+    if matches:
+        return matches[0]
+    queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
+    if any(row["queue"].lower() == queue.lower() for row in queues):
+        raise RuntimeError(f"CUPS queue name collision: {queue}; existing queue was not modified")
+    command = ["lpadmin", "-p", queue, "-E", "-v", uri, "-m", "raw"]
+    try:
+        response = _run(command)
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            "CUPS queue creation timed out; check lpstat -v before retrying"
+        ) from exc
+    if response.returncode:
+        message = response.stderr.decode(errors="replace").strip()
+        raise RuntimeError(
+            f"Cannot create CUPS queue: {message}. If administrator permission is required, run: "
+            + shlex.join(["sudo", *command])
+            + ". If raw queues are unsupported, configure a compatible queue in system settings."
+        )
+    if not any(row["queue"] == queue and row["device_uri"] == uri for row in _queues()):
+        raise RuntimeError("Created CUPS queue could not be verified; no print job submitted")
+    return queue
+
+
 class CUPSBackend:
     def __init__(self, identifier, *, timeout=120):
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be positive and finite")
         if not isinstance(identifier, str) or not identifier:
             raise ValueError("A CUPS queue name or cups://QUEUE is required")
+        self.device_uri = None
+        if identifier.startswith("usb://"):
+            parsed = urlsplit(identifier)
+            if (
+                not parsed.netloc
+                or not parsed.path
+                or parsed.fragment
+                or any(c.isspace() or ord(c) < 32 for c in identifier)
+            ):
+                raise ValueError("Invalid USB URI; use the encoded URI returned by discover")
+            self.device_uri = identifier
+            self.queue = None
+            self.timeout = timeout
+            return
         queue = identifier.removeprefix("cups://")
         if not queue or any(c.isspace() or ord(c) < 32 or c in "/#" for c in queue):
             raise ValueError(
@@ -90,6 +141,8 @@ class CUPSBackend:
     def send(self, data):
         if not isinstance(data, bytes) or not data:
             raise ValueError("Instructions must be nonempty bytes")
+        if self.device_uri:
+            self.queue = _resolve_usb(self.device_uri)
         result = dict(
             instructions_sent=False,
             outcome="unknown",
@@ -98,6 +151,7 @@ class CUPSBackend:
             ready_for_next_job=False,
             printer_state=None,
             job_id=None,
+            queue=self.queue,
         )
         try:
             process = _run(

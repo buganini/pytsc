@@ -85,9 +85,9 @@ def test_submission_failure_no_retry(monkeypatch, response):
     assert run.call_count == 1
 
 
-def test_reject_usb_uri():
-    with pytest.raises(ValueError, match="create a queue"):
-        CUPSBackend("usb://Unknown/IEEE-1284%20Controller?location=1140000")
+def test_reject_invalid_usb_uri():
+    with pytest.raises(ValueError, match="Invalid USB"):
+        CUPSBackend("usb://")
 
 
 def test_printer_api(monkeypatch):
@@ -105,3 +105,56 @@ def test_cli_cups_does_not_pass_serial_options(tmp_path, monkeypatch):
     result = CliRunner().invoke(cli, ["-b", "cups", "-p", "TSC", "send", str(path), "--json"])
     assert result.exit_code == 0, result.output
     assert '"outcome": "queued"' in result.output
+
+
+def test_usb_reuses_queue_without_creating(monkeypatch):
+    run = Mock(
+        side_effect=[
+            completed(b"device for Existing: usb://Unknown/Printer\n"),
+            completed(b"request id is Existing-2"),
+        ]
+    )
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    backend = CUPSBackend("usb://Unknown/Printer")
+    assert run.call_count == 0  # opening and discovering do not mutate CUPS
+    result = backend.send(b"CLS\r\n")
+    assert result["queue"] == "Existing"
+    assert [call.args[0][0] for call in run.call_args_list] == ["lpstat", "lp"]
+
+
+def test_usb_creates_and_verifies_queue(monkeypatch):
+    import hashlib
+
+    uri = "usb://Unknown/Printer?location=1140000"
+    queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
+    run = Mock(
+        side_effect=[
+            completed(stderr=b"No destinations added", code=1),
+            completed(),
+            completed(f"device for {queue}: {uri}\n".encode()),
+            completed(),
+        ]
+    )
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    assert CUPSBackend(uri).send(b"CLS\r\n")["queue"] == queue
+    assert run.call_args_list[1].args[0] == ["lpadmin", "-p", queue, "-E", "-v", uri, "-m", "raw"]
+
+
+def test_usb_permission_error_does_not_print(monkeypatch):
+    run = Mock(side_effect=[completed(), completed(stderr=b"Forbidden", code=1)])
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    with pytest.raises(RuntimeError, match="sudo lpadmin"):
+        CUPSBackend("usb://Unknown/Printer").send(b"CLS\r\n")
+    assert run.call_count == 2
+
+
+def test_usb_collision_does_not_modify_queue(monkeypatch):
+    import hashlib
+
+    uri = "usb://Unknown/Printer"
+    queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
+    run = Mock(return_value=completed(f"device for {queue}: usb://Other/Printer\n".encode()))
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    with pytest.raises(RuntimeError, match="collision"):
+        CUPSBackend(uri).send(b"CLS\r\n")
+    assert run.call_count == 1

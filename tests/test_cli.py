@@ -43,3 +43,34 @@ def test_env_and_models():
     assert json.loads(result.output)["baudrate"] == 19200
     result = runner.invoke(cli, ["info", "models", "--json"])
     assert all(not m["hardware_verified"] for m in json.loads(result.output))
+
+
+def test_discover_all_and_explicit_backend(monkeypatch):
+    from pytsc.backends import helpers
+
+    monkeypatch.setattr(helpers, "discover_serial", lambda: [{"identifier": "COM3"}])
+    monkeypatch.setattr(helpers, "discover_cups", lambda: [{"identifier": "cups://TSC"}])
+    runner = CliRunner()
+    result = runner.invoke(cli, ["discover", "--json"], env={"PYTSC_BACKEND": ""})
+    assert result.exit_code == 0, result.output
+    assert {r["backend"] for r in json.loads(result.output)} == {"serial", "cups"}
+    for args, env in [
+        (["-b", "cups", "discover", "--json"], {}),
+        (["discover", "--json"], {"PYTSC_BACKEND": "cups"}),
+    ]:
+        result = runner.invoke(cli, args, env=env)
+        assert [r["backend"] for r in json.loads(result.output)] == ["cups"]
+
+
+def test_discover_all_retains_partial_results(monkeypatch):
+    from pytsc.backends import helpers
+
+    monkeypatch.setattr(helpers, "discover_serial", lambda: [{"identifier": "COM3"}])
+
+    def fail():
+        raise RuntimeError("CUPS not installed")
+
+    monkeypatch.setattr(helpers, "discover_cups", fail)
+    result = helpers.discover()
+    assert result[0]["identifier"] == "COM3"
+    assert result[1] == {"kind": "warning", "backend": "cups", "message": "CUPS not installed"}

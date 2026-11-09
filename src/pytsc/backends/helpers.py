@@ -12,12 +12,20 @@ def open_backend(identifier, backend_identifier="serial", **options):
     raise ValueError(f"Unknown backend: {backend_identifier}")
 
 
-def discover(backend_identifier="serial"):
-    if backend_identifier == "serial":
-        return discover_serial()
-    if backend_identifier == "cups":
-        return discover_cups()
-    raise ValueError(f"Unknown backend: {backend_identifier}")
+def discover(backend_identifier=None):
+    """Scan all backends by default; preserve partial results with warnings."""
+    scanners = {"serial": discover_serial, "cups": discover_cups}
+    if backend_identifier is not None and backend_identifier not in scanners:
+        raise ValueError(f"Unknown backend: {backend_identifier}")
+    records = []
+    for name in [backend_identifier] if backend_identifier else scanners:
+        try:
+            records.extend({**row, "backend": name} for row in scanners[name]())
+        except (RuntimeError, OSError) as exc:
+            if backend_identifier:
+                raise
+            records.append({"kind": "warning", "backend": name, "message": str(exc)})
+    return records
 
 
 def send(instructions, printer_identifier, backend_identifier="serial", blocking=True, **options):
