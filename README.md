@@ -371,7 +371,7 @@ may change on reconnection. Existing `usb://...` identifiers still mean CUPS;
 `pyusb://...` selects direct access. Default discovery includes optional pyusb and
 reports missing dependencies as a warning without suppressing other backends.
 Direct USB discovery reports `vendor_id` and `product_id` as four-digit hexadecimal
-strings (for example, `0x067b` and `0x2305`), including in JSON output.
+strings without a prefix (for example, `067b` and `2305`), including in JSON output.
 
 Global options: `--usb-chunk-size`, `--usb-write-delay-ms`, and
 `--usb-soft-reset/--no-usb-soft-reset`. Python `send`/`Printer` accept `chunk_size`,

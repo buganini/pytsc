@@ -23,8 +23,8 @@ def discover():
         result.append(
             {
                 "identifier": f"pyusb://067b:2305/{device.bus}/{device.address}",
-                "vendor_id": f"0x{device.idVendor:04x}",
-                "product_id": f"0x{device.idProduct:04x}",
+                "vendor_id": f"{device.idVendor:04x}",
+                "product_id": f"{device.idProduct:04x}",
                 "bus": device.bus,
                 "address": device.address,
             }
