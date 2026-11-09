@@ -35,7 +35,7 @@ def discover():
 
 class USBBackend:
     def __init__(
-        self, identifier, *, timeout=120, chunk_size=512, write_delay=0.01, soft_reset=True
+        self, identifier, *, timeout=120, chunk_size=512, write_delay=0.01, soft_reset=False
     ):
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be positive and finite")

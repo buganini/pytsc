@@ -98,3 +98,21 @@ def test_usb_print_auto_backend_and_overrides(monkeypatch, tmp_path):
     result = runner.invoke(cli, command, env={"PYTSC_BACKEND": "serial"})
     assert result.exit_code == 0, result.output
     assert submit.call_args.args[2] == "serial"
+
+
+def test_direct_usb_reset_default_and_opt_in(monkeypatch, tmp_path):
+    from unittest.mock import Mock
+
+    source = tmp_path / "job.tspl"
+    source.write_bytes(b"CLS\r\nPRINT 1\r\n")
+    submit = Mock(return_value={"outcome": "sent", "bytes_sent": source.stat().st_size})
+    monkeypatch.setattr("pytsc.cli.send", submit)
+    for flags, expected in [([], False), (["--usb-soft-reset"], True)]:
+        result = CliRunner().invoke(
+            cli,
+            ["-p", "pyusb://067b:2305", *flags, "send", str(source)],
+            env={"PYTSC_BACKEND": ""},
+        )
+        assert result.exit_code == 0, result.output
+        assert submit.call_args.args[2] == "pyusb"
+        assert submit.call_args.kwargs["soft_reset"] is expected

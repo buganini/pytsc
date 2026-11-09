@@ -161,3 +161,31 @@ control-only probes confirmed both recipient 0x23 and 0x21 soft resets and
 `clear_halt(0x01)` returned Pipe error. No payload was sent in this attempt.
 No system drivers were detached or changed. Optional backend is experimental;
 it does not yet establish a workaround for the adapter/connection fault.
+
+
+### Successful direct USB output (2026-11-09)
+
+With `--no-usb-soft-reset`, the user confirmed that `d-bar-bitmap.tspl` printed
+matching native and bitmap grids, then repeated successfully without a restart
+or reconnect. The full image command also produced a correctly arranged label:
+
+```sh
+pytsc -p pyusb://067b:2305 --timeout 20 --no-usb-soft-reset \
+  print -l 102x76.2 --gap 3 --fit contain --dither examples/test-label.png
+```
+
+The photo shows no earlier bitmap fragmentation or row shifts. Some fine lines
+remain faint; print quality and measured geometry are separate pending checks.
+The source image's printed dimension captions are scaled along with the image,
+so they are not measurements of the enlarged output.
+
+Soft reset is now disabled by default in both CLI and Python backend, matching
+these successful tests. Unidirectional mode, 512-byte writes and 10 ms pacing
+remain unchanged. This does not establish which transport change was decisive,
+and does not establish a fix for CUPS. The earlier failed reset experiment above
+is retained as historical evidence.
+
+Remaining optional acceptance checks: repeat the full image without restarting,
+and print with `--copies 2` to check count and feed alignment. Neither has yet
+been confirmed. The model's `hardware_verified` flag remains false pending
+geometry and broader repeatability checks.

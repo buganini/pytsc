@@ -35,7 +35,7 @@ def test_single_direction_reset_and_partial_writes(fake):
         return count
 
     device.write.side_effect = write
-    backend = USBBackend("pyusb://067b:2305", write_delay=0)
+    backend = USBBackend("pyusb://067b:2305", write_delay=0, soft_reset=True)
     result = backend.send(b"abc\x00\xffdef")
     assert written == b"abc\x00\xffdef"
     assert result["outcome"] == "sent" and not result["did_print"]
@@ -70,7 +70,22 @@ def test_claim_failure_cleans_up(fake):
 def test_reset_recipient_fallback(fake):
     device, _ = fake
     device.ctrl_transfer.side_effect = [OSError(32, "pipe"), None]
-    backend = USBBackend("pyusb://067b:2305", write_delay=0)
+    backend = USBBackend("pyusb://067b:2305", write_delay=0, soft_reset=True)
     backend.send(b"abc")
     assert device.ctrl_transfer.call_args_list[1].args[:4] == (0x21, 2, 0, 0)
     backend.close()
+
+
+def test_default_skips_unsupported_reset(fake):
+    device, _ = fake
+    device.ctrl_transfer.side_effect = OSError(32, "pipe")
+    device.clear_halt.side_effect = OSError(32, "pipe")
+    backend = USBBackend("pyusb://067b:2305", write_delay=0)
+    try:
+        for _ in range(2):
+            assert backend.send(b"abc\x00\xff")["bytes_sent"] == 5
+        device.ctrl_transfer.assert_not_called()
+        device.clear_halt.assert_not_called()
+        assert device.write.call_count == 2
+    finally:
+        backend.close()

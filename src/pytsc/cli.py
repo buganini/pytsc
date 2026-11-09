@@ -89,12 +89,17 @@ def emit(value, as_json):
 )
 @click.option("--usb-chunk-size", type=click.IntRange(1, 65536), default=512)
 @click.option("--usb-write-delay-ms", type=click.FloatRange(min=0), default=10)
-@click.option("--usb-soft-reset/--no-usb-soft-reset", default=True)
+@click.option(
+    "--usb-soft-reset/--no-usb-soft-reset",
+    default=False,
+    show_default=True,
+    help="Request a printer-class reset before direct USB transmission.",
+)
 @click.option("--debug", is_flag=True, help="Log transmission size and port to stderr.")
 @click.version_option(__version__)
 @click.pass_context
 def cli(ctx, **options):
-    """Convert images to TSPL and send to serial or CUPS label printers (experimental)."""
+    """Convert images to TSPL and send to serial, CUPS or direct USB label printers (experimental)."""
     ctx.ensure_object(dict)
     ctx.obj.update(options)
 

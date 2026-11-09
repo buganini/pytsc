@@ -2,17 +2,19 @@
 
 Experimental Python library and CLI for TSC/TSPL label printers, with an API and
 Click CLI modeled after [brother_ql](https://github.com/pklaus/brother_ql).
-The current hardware target is **elitek TTP-342 through a USB-to-IEEE-1284 adapter
-on macOS CUPS**. RS-232 is also supported through **pyserial**, but is untested on
-this device. [pyniim](https://github.com/buganini/pyniim) also informs the convenience
-API and honest transmission-result reporting.
+The current hardware target is **elitek TTP-342 through a Prolific PL2305
+USB-to-IEEE-1284 adapter on macOS**, using direct PyUSB access. RS-232 via
+**pyserial** and CUPS queues are also supported.
+[pyniim](https://github.com/buganini/pyniim) informs the convenience API and
+honest transmission-result reporting.
 
-**Status: 0.1.0a1; experimental physical output, unresolved corruption/stalls.** TTP-342 is a provisional
-300 dpi / 12 dots per mm, 104 mm maximum-width profile based on TSC documentation.
-The elitek-branded device's firmware, geometry and reliable bitmap compatibility
-must still be checked; see [hardware test notes](docs/HARDWARE_TESTING.md). Serial and CUPS backends are implemented. Direct pyusb/network transports,
-status polling, cutting and automatic calibration are not implemented.
-USB printing through an installed CUPS queue is supported.
+**Status: 0.1.0a1; experimental, with successful direct-USB physical tests.**
+Two consecutive native/BITMAP comparison labels and one full dithered image
+printed correctly with soft reset disabled. CUPS on this adapter still showed
+corruption and stalls. Long-run reliability and exact geometry remain unverified;
+see [hardware test notes](docs/HARDWARE_TESTING.md). TTP-342 uses a provisional
+300 dpi / 12 dots per mm, 104 mm maximum-width profile. Network transport,
+printer-status polling, cutting and automatic calibration are not implemented.
 
 ## Install
 
@@ -21,7 +23,8 @@ Python 3.11+; install this checkout (not a published PyPI release):
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -e .
+python -m pip install -e '.[usb]'
+# On macOS, direct USB also requires system libusb: brew install libusb
 pytsc --help
 pytsc discover
 ```
@@ -39,31 +42,31 @@ discovery, conversion or preview commands.
 orientation markers, a 10 mm square, 1–4 dot lines, a grayscale ramp and 1 mm
 ruler ticks. The examples enable `--dither` to approximate the grayscale ramp
 with black-and-white dots. No Python example script is needed.
-Check the loaded label dimensions, gap and printer serial settings first.
-The settings below (9600 baud, 8N1, no flow control) are adjustable starting
-values, not verified factory defaults.
+The tested media is **102 × 76.2 mm with a 3 mm gap**. Print through the
+PL2305 adapter using the successful settings (soft reset is disabled by default):
 
 ```sh
-# Find the adapter device path; on macOS, typically /dev/cu.usbserial-...
 pytsc discover --json
-
-# Preview and generate TSPL offline, without connecting to a printer
-pytsc -m TTP-342 preview -l 50x30 --dither examples/test-label.png -o /tmp/preview.png
-pytsc -m TTP-342 convert -l 50x30 --gap 2 --dither examples/test-label.png -o /tmp/test.tspl
-pytsc analyze /tmp/test.tspl --output-dir /tmp/pytsc-bitmaps
-
-# Substitute your device path, baud rate and gap; print one label
-pytsc -b serial -m TTP-342 -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 \
-  print -l 50x30 --gap 2 --copies 1 --dither examples/test-label.png
-
-# Alternatively, send the generated instruction file (prints another label)
-pytsc -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 send /tmp/test.tspl
+pytsc -p pyusb://067b:2305 --timeout 20 \
+  print -l 102x76.2 --gap 3 --fit contain --dither examples/test-label.png
 ```
 
-On Windows, use `-p COM3`. On Linux, use `-p /dev/ttyUSB0` or a stable
-`/dev/serial/by-id/...` path. `serial:///dev/cu.usbserial-...` is also accepted.
-If the adapter does not appear on macOS, check its connection, driver and cable;
-do not select the Bluetooth or debug-console ports.
+For a final repeatability check, repeat that command without rebooting or
+reconnecting, then add `--copies 2` to check two-label feeding and alignment.
+These checks have not yet been reported as completed.
+
+Generate and inspect the same raster offline:
+
+```sh
+pytsc preview -l 102x76.2 --fit contain --dither examples/test-label.png -o /tmp/preview.png
+pytsc convert -l 102x76.2 --gap 3 --fit contain --dither examples/test-label.png -o /tmp/test.tspl
+pytsc analyze /tmp/test.tspl --output-dir /tmp/pytsc-bitmaps
+```
+
+For RS-232, use `-b serial -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600`
+before `print`, substituting the actual port and printer settings. Serial settings
+are unverified on this device. Windows ports such as `COM3`, Linux paths such as
+`/dev/ttyUSB0`, and `serial:///dev/cu.usbserial-...` are accepted.
 
 For other label sizes, explicitly resize with options such as
 `print -l 40x30 --fit contain ...`. This also scales the 10 mm square and ruler,
@@ -77,7 +80,7 @@ The 300 dpi profile uses the printhead's actual 12 dots/mm, so 50 mm equals
 
 Global options precede the command, as in brother_ql:
 
-- `-b/--backend serial|cups`, `-m/--model`, `-p/--printer`, `--debug`, `--version`.
+- `-b/--backend serial|cups|pyusb`, `-m/--model`, `-p/--printer`, `--debug`, `--version`.
 - `--baudrate`, `--parity N|E|O`, `--stopbits 1|2` (8 data bits).
 - `--flow-control none|rtscts|dsrdtr`; this must match the printer and cable.
 - `--timeout 120`: whole-job transmission deadline, in seconds.
@@ -117,8 +120,12 @@ from pytsc.backends.helpers import discover, send
 raster = TSPLRaster("TTP-342")
 instructions = convert(raster, images=["examples/test-label.png"], label="50x30", dither=True)
 # instructions is raw bytes, suitable for saving as a .tspl file.
-result = send(instructions, printer_identifier="/dev/cu.usbserial-YOUR_ADAPTER",
-              backend_identifier="serial", baudrate=9600)
+result = send(
+    instructions,
+    printer_identifier="/dev/cu.usbserial-YOUR_ADAPTER",
+    backend_identifier="serial",
+    baudrate=9600,
+)
 ```
 
 `convert()` accepts paths, Pillow images, or binary file objects readable by
@@ -131,10 +138,14 @@ successful conversion. SVG/PDF/text layout must be rasterized first.
 Native commands are also available through the chainable builder:
 
 ```python
-job = (TSPLRaster("TTP-342").setup("50x30", gap=2).clear()
-       .text(24, 24, "Hello TSPL")
-       .barcode(24, 80, "12345678", height=80)
-       .print_label(copies=1))
+job = (
+    TSPLRaster("TTP-342")
+    .setup("50x30", gap=2)
+    .clear()
+    .text(24, 24, "Hello TSPL")
+    .barcode(24, 80, "12345678", height=80)
+    .print_label(copies=1)
+)
 # Send job.data with the same send() function.
 ```
 
@@ -342,9 +353,8 @@ and compare every pixel against the prepared image.
 
 Install `python -m pip install -e '.[usb]'` and system libusb (on macOS, Homebrew
 `libusb`). This optional backend targets only VID:PID `067b:2305`. It claims the
-printer-class **unidirectional** alternate setting and bulk OUT endpoint, performs
-a printer-class soft reset before sending, and uses 512-byte writes with a 10 ms
-gap. These are experimental transport settings, not measured printer limits.
+printer-class **unidirectional** alternate setting and bulk OUT endpoint, skips
+soft reset by default, and uses 512-byte writes with a 10 ms gap. These are experimental transport settings, not measured printer limits.
 
 ```sh
 pytsc -b pyusb discover --json
@@ -358,14 +368,18 @@ reports missing dependencies as a warning without suppressing other backends.
 
 Global options: `--usb-chunk-size`, `--usb-write-delay-ms`, and
 `--usb-soft-reset/--no-usb-soft-reset`. Python `send`/`Printer` accept `chunk_size`,
-`write_delay` (seconds), and `soft_reset` with backend `pyusb`. Stop/cancel CUPS jobs
+`write_delay` (seconds), and `soft_reset=False` with backend `pyusb`. Stop/cancel CUPS jobs
 for this device before direct access. The backend does not delete queues, detach
 system drivers, replay failed bytes, or perform a whole-device reset.
 
-The upstream PL2305 quirk inspired this experiment, but is **not implemented
-identically**: we reset before sending and do not reset immediately afterward,
-since an immediate reset can discard pending data. Partial writes are handled;
-errors report known acknowledged bytes and invalidate the session. `sent` means
-USB writes completed, not physical printing. The installed macOS/libusb test
-claimed interface 0, alternate 0, endpoint 0x01 successfully, but soft reset and
-clear-halt returned Pipe error. No direct-USB printed output is verified yet.
+The upstream PL2305 quirk inspired this transport, but its reset behavior is
+**not implemented identically**. Reset is opt-in with `--usb-soft-reset`; it runs
+before sending, never immediately afterward. The tested adapter rejected soft
+reset and clear-halt with Pipe error, so leave reset disabled on this setup.
+Partial writes are handled; errors report known acknowledged bytes and invalidate
+the session. `sent` means USB writes completed, not physical printing.
+
+With reset disabled, user-confirmed output includes two consecutive matching
+native/BITMAP comparison labels and one full dithered test image. This validates
+the tested path, but does not isolate whether unidirectional mode, pacing, or
+bypassing CUPS resolved the earlier corruption.
