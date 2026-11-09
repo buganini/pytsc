@@ -178,6 +178,12 @@ def image_options(fn):
                 help="Lower values print more black, as in brother_ql.",
             ),
             click.option("-d", "--dither", is_flag=True),
+            click.option(
+                "--bitmap-rows",
+                type=click.IntRange(0, 65535),
+                default=0,
+                help="Rows per BITMAP command; 0 sends the whole image. Diagnostic option.",
+            ),
             click.option("--fit", type=click.Choice(["strict", "contain"]), default="strict"),
             click.option(
                 "--gap",
@@ -274,3 +280,19 @@ def analyze_command(file, output_dir, as_json):
                 bitmap_image(record).save(output_dir / f"bitmap-{index:03d}.png")
             record["byte_count"] = len(record.pop("data"))
     emit(records, as_json)
+
+
+@cli.command("status")
+@click.option("--json", "as_json", is_flag=True)
+@click.pass_context
+@errors
+def status_command(ctx, as_json):
+    """Show CUPS queue state and pending jobs without changing them."""
+    from .backends.cups import status
+
+    identifier = ctx.obj["printer"]
+    if not identifier:
+        raise ValueError("Use --printer or PYTSC_PRINTER to select a printer")
+    if resolve_backend(identifier, ctx.obj["backend"]) != "cups":
+        raise ValueError("status currently supports only CUPS")
+    emit(status(identifier), as_json)

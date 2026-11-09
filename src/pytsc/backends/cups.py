@@ -112,7 +112,17 @@ def _resolve_usb(uri):
     queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
     if any(row["queue"].lower() == queue.lower() for row in queues):
         raise RuntimeError(f"CUPS queue name collision: {queue}; existing queue was not modified")
-    command = ["lpadmin", "-p", queue, "-E", "-v", uri, *_queue_driver_options()]
+    command = [
+        "lpadmin",
+        "-p",
+        queue,
+        "-E",
+        "-v",
+        uri,
+        *_queue_driver_options(),
+        "-o",
+        "printer-error-policy=abort-job",
+    ]
     try:
         response = _run(command)
     except subprocess.TimeoutExpired as exc:
@@ -141,6 +151,35 @@ def _resolve_usb(uri):
     if not any(row["queue"] == queue and row["device_uri"] == uri for row in _queues()):
         raise RuntimeError("Created CUPS queue could not be verified; no print job submitted")
     return queue
+
+
+def status(identifier):
+    """Read queue state and pending jobs without creating or changing a queue."""
+    backend = CUPSBackend(identifier)
+    queue = backend.queue
+    if backend.device_uri:
+        matches = sorted(
+            row["queue"] for row in _queues() if row["device_uri"] == backend.device_uri
+        )
+        if not matches:
+            raise ValueError("No CUPS queue exists for this USB URI")
+        queue = matches[0]
+    result = {"queue": queue}
+    for key, args in (
+        ("state", ["lpstat", "-p", queue, "-l"]),
+        ("acceptance", ["lpstat", "-a", queue]),
+        ("pending_jobs", ["lpstat", "-W", "not-completed", "-o", queue]),
+    ):
+        try:
+            response = _run(args)
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError("CUPS status query timed out") from exc
+        if response.returncode:
+            raise RuntimeError(
+                response.stderr.decode(errors="replace").strip() or "CUPS status query failed"
+            )
+        result[key] = response.stdout.decode(errors="replace").strip()
+    return result
 
 
 class CUPSBackend:

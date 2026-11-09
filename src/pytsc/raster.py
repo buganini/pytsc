@@ -68,20 +68,28 @@ class TSPLRaster:
     def clear(self):
         return self.command("CLS")
 
-    def bitmap(self, image, x=0, y=0):
+    def bitmap(self, image, x=0, y=0, *, rows=0):
         from PIL import Image
 
         integer(x, "x")
         integer(y, "y")
         if image.mode != "1":
             raise ValueError("BITMAP requires a monochrome mode-1 image")
+        integer(rows, "bitmap rows", 0)
+        integer(y + image.height - 1, "last bitmap row")
         stride = (image.width + 7) // 8
         # Pillow normally pads unused bits with zero (black). Pad white explicitly.
         padded = Image.new("1", (stride * 8, image.height), 1)
         padded.paste(image)
-        self.data += (
-            f"BITMAP {x},{y},{stride},{image.height},0,".encode() + padded.tobytes() + b"\r\n"
-        )
+        data = padded.tobytes()
+        step = rows or image.height
+        for start in range(0, image.height, step):
+            height = min(step, image.height - start)
+            self.data += (
+                f"BITMAP {x},{y + start},{stride},{height},0,".encode()
+                + data[start * stride : (start + height) * stride]
+                + b"\r\n"
+            )
         return self
 
     def text(self, x, y, text, font="3", rotation=0, x_mul=1, y_mul=1):

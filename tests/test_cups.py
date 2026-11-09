@@ -138,7 +138,18 @@ def test_usb_creates_and_verifies_queue(monkeypatch):
     )
     monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
     assert CUPSBackend(uri).send(b"CLS\r\n")["queue"] == queue
-    assert run.call_args_list[1].args[0] == ["lpadmin", "-p", queue, "-E", "-v", uri, "-m", "raw"]
+    assert run.call_args_list[1].args[0] == [
+        "lpadmin",
+        "-p",
+        queue,
+        "-E",
+        "-v",
+        uri,
+        "-m",
+        "raw",
+        "-o",
+        "printer-error-policy=abort-job",
+    ]
 
 
 def test_usb_permission_error_does_not_print(monkeypatch):
@@ -211,3 +222,31 @@ def test_unsupported_raw_error_does_not_recommend_sudo(monkeypatch):
     with pytest.raises(RuntimeError) as exc:
         CUPSBackend("usb://Unknown/Printer").send(b"CLS\r\n")
     assert "sudo" not in str(exc.value)
+
+
+def test_status_does_not_modify_queue(monkeypatch):
+    from pytsc.backends.cups import status
+
+    run = Mock(
+        side_effect=[
+            completed(b"device for TSC: usb://Unknown/Printer\n"),
+            completed(b"printer TSC disabled: Unable to send data to printer."),
+            completed(b"TSC accepting requests"),
+            completed(b"TSC-11 user 108000"),
+        ]
+    )
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    result = status("usb://Unknown/Printer")
+    assert "disabled" in result["state"]
+    assert "TSC-11" in result["pending_jobs"]
+    assert all(call.args[0][0] == "lpstat" for call in run.call_args_list)
+
+
+def test_status_missing_queue_does_not_create(monkeypatch):
+    from pytsc.backends.cups import status
+
+    run = Mock(return_value=completed())
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    with pytest.raises(ValueError, match="No CUPS queue"):
+        status("usb://Unknown/Printer")
+    assert run.call_count == 1

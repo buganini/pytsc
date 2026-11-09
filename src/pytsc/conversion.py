@@ -54,6 +54,7 @@ def convert(
     density=8,
     direction=1,
     speed=None,
+    bitmap_rows=0,
 ):
     """Return raw TSPL bytes and replace raster.data only after successful conversion."""
     integer(copies, "copies", 1)
@@ -70,7 +71,7 @@ def convert(
             dither=dither,
             fit=fit,
         )
-        job.clear().bitmap(image).print_label(copies)
+        job.clear().bitmap(image, rows=bitmap_rows).print_label(copies)
         count += 1
     if not count:
         raise ValueError("At least one image is required")

@@ -88,3 +88,25 @@ def test_native_commands_and_injection():
 def test_analyze_rejects_invalid(data):
     with pytest.raises(ValueError):
         analyze(data)
+
+
+@pytest.mark.parametrize("width,height,rows", [(1200, 720, 128), (9, 7, 3), (600, 360, 1000)])
+def test_bitmap_strips_preserve_every_pixel(width, height, rows):
+    image = Image.new("1", (width, height), 1)
+    for y in range(height):
+        image.putpixel((y % width, y), 0)
+    single = analyze(TSPLRaster().bitmap(image).data)[0]
+    chunks = analyze(TSPLRaster().bitmap(image, x=4, y=9, rows=rows).data)
+    assert b"".join(chunk["data"] for chunk in chunks) == single["data"]
+    assert [chunk["y"] for chunk in chunks] == list(range(9, height + 9, rows))
+    assert all(chunk["x"] == 4 and chunk["height"] <= rows for chunk in chunks)
+
+
+def test_large_conversion_strips_print_once():
+    data = convert(
+        TSPLRaster(), [Image.new("1", (600, 360))], "100x60", fit="contain", bitmap_rows=128
+    )
+    records = analyze(data)
+    assert sum(r["command"] == "BITMAP" for r in records) == 6
+    assert sum(r["command"] == "CLS" for r in records) == 1
+    assert sum(r["command"] == "PRINT 1,1" for r in records) == 1

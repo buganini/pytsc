@@ -254,3 +254,48 @@ and serial otherwise. Bare CUPS queue names require `-b cups`. Explicit `-b` or
 use the same inference when no backend is provided.
 Discovery never creates queues. USB queue resolution/creation happens only when
 sending a nonempty job; no print job is submitted if setup or verification fails.
+
+## Troubleshooting stalled CUPS jobs
+
+```sh
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' status
+# Or: pytsc -b cups -p QUEUE status --json
+```
+
+This reads queue state, acceptance and pending jobs without modifying the queue.
+A successful submission can remain queued after a USB transmission error.
+CUPS's default `stop-printer` error policy can disable a queue after a failed job;
+new pytsc-created queues use `printer-error-policy=abort-job` instead. This aborts
+the failed job without automatically replaying it or stopping later jobs. It does
+not fix USB communication failures or guarantee that partially sent data was cleared.
+Existing queues retain their policy; to update a pytsc queue explicitly:
+
+```sh
+lpadmin -p QUEUE -o printer-error-policy=abort-job
+```
+
+When a queue is disabled, inspect its pending jobs before enabling it. Cancel only
+a job you intend to discard with `cancel QUEUE-JOBNUMBER`; clear any incomplete
+printer command using the printer's documented procedure, then run `cupsenable QUEUE`.
+Enabling can release pending jobs, so do not blindly enable or resubmit repeatedly.
+Deleting and recreating the printer is usually unnecessary for a disabled queue.
+If USB transport errors recur, check adapter/cable reliability and printer status;
+the error policy is a recovery improvement, not a confirmed transport fix.
+
+### Diagnosing skewed large bitmaps
+
+For a 100 × 60 mm label at 12 dots/mm, the image is 1200 × 720 dots:
+150 bytes per row, 108,000 payload bytes. If rows shift progressively, compare the
+preview with the printed label and check physical label dimensions, printer
+resolution and transport errors. A diagnostic option can split the same pixels
+into multiple BITMAP commands at successive Y coordinates:
+
+```sh
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' \
+  print -l 100x60 --fit contain --gap 2 --dither --bitmap-rows 128 examples/test-label.png
+```
+
+`--bitmap-rows 0` (default) sends one BITMAP per image. A value of 128 produces six
+strips for this example, each at most 19,200 bytes, followed by a single PRINT.
+This is a diagnostic comparison, not a verified firmware workaround. It does not
+pace USB transfers, reduce total image memory, or fix an incorrect row width.
