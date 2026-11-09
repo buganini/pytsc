@@ -30,41 +30,46 @@ No Windows DLL or .NET runtime is needed. Serial discovery lists ports and adapt
 metadata; it cannot identify the printer behind an adapter. No port is opened by
 discovery, conversion or preview commands.
 
-## 實機測試：直接印附帶圖片
+## Hardware test: print the supplied image
 
 ![Test label](examples/test-label.png)
 
-`examples/test-label.png` 是 **50 × 30 mm、600 × 360 px** 的測試圖，含方向標記、
-10 mm 方框、1–4 dot 細線、灰階與 1 mm 刻度。不需要 Python example 檔。
-先確認裝入的標籤尺寸、間隙，以及印表機的 serial 設定；以下 9600、8N1、
-無流量控制只是可調整的起點，不代表已確認的原廠設定。
+`examples/test-label.png` is a **50 × 30 mm, 600 × 360 px** test image with
+orientation markers, a 10 mm square, 1–4 dot lines, a grayscale ramp and 1 mm
+ruler ticks. No Python example script is needed.
+Check the loaded label dimensions, gap and printer serial settings first.
+The settings below (9600 baud, 8N1, no flow control) are adjustable starting
+values, not verified factory defaults.
 
 ```sh
-# 找到 adapter 的裝置路徑；macOS 通常為 /dev/cu.usbserial-...
+# Find the adapter device path; on macOS, typically /dev/cu.usbserial-...
 pytsc discover --json
 
-# 不連線：預覽及輸出 TSPL
+# Preview and generate TSPL offline, without connecting to a printer
 pytsc -m TTP-342 preview -l 50x30 examples/test-label.png -o /tmp/preview.png
 pytsc -m TTP-342 convert -l 50x30 --gap 2 examples/test-label.png -o /tmp/test.tspl
 pytsc analyze /tmp/test.tspl --output-dir /tmp/pytsc-bitmaps
 
-# 把路徑、baud rate 與 gap 換成實際設定；印一張
+# Substitute your device path, baud rate and gap; print one label
 pytsc -b serial -m TTP-342 -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 \
   print -l 50x30 --gap 2 --copies 1 examples/test-label.png
 
-# 或送出剛才的指令檔（會再印一張）
+# Alternatively, send the generated instruction file (prints another label)
 pytsc -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 send /tmp/test.tspl
 ```
 
-Windows 使用 `-p COM3`；Linux 使用 `-p /dev/ttyUSB0`，或使用穩定的
-`/dev/serial/by-id/...` 路徑。也接受 `serial:///dev/cu.usbserial-...`。
-macOS 若沒有列出 adapter，先檢查轉接器是否插入、驅動與線材；不要選 Bluetooth
-或 debug-console 埠。
+On Windows, use `-p COM3`. On Linux, use `-p /dev/ttyUSB0` or a stable
+`/dev/serial/by-id/...` path. `serial:///dev/cu.usbserial-...` is also accepted.
+If the adapter does not appear on macOS, check its connection, driver and cable;
+do not select the Bluetooth or debug-console ports.
 
-其他尺寸可明確縮放，例如 `print -l 40x30 --fit contain ...`，但圖上的 10 mm
-與刻度也會跟著縮小，不能再用來校正尺寸。預設 `--fit strict` 拒絕不合尺寸的圖。
-`--rotate auto` 僅處理寬高剛好對調的情況。300 dpi profile 使用印字頭實際的
-12 dots/mm，因此 50 mm 是 600 dots，不是用 300/25.4 換算。
+For other label sizes, explicitly resize with options such as
+`print -l 40x30 --fit contain ...`. This also scales the 10 mm square and ruler,
+so they can no longer be used to check physical dimensions. The default
+`--fit strict` rejects images with mismatched dimensions. `--rotate auto` only
+handles images whose width and height exactly match the swapped target dimensions.
+The 300 dpi profile uses the printhead's actual 12 dots/mm, so 50 mm equals
+600 dots rather than a value calculated using 300/25.4.
 
 ## CLI
 
@@ -184,7 +189,7 @@ Tests use synthetic images and fake serial ports; they never print a label.
 - [TSC TTP-243/342 specification sheet, mirrored PDF](https://autoid.com.hk/pos/labelprinter/tsc/ttp-243.pdf): TTP-342 12 dots/mm profile basis; does not establish elitek firmware compatibility.
 - [pyserial API](https://pyserial.readthedocs.io/en/latest/pyserial_api.html): serial parameters and transport behavior.
 
-## macOS / Linux：CUPS USB 列印
+## macOS / Linux: CUPS USB printing
 
 USB-to-IEEE-1284 adapters are CUPS printer devices, not serial ports. Use the
 `cups` backend on macOS or Linux with CUPS client tools (`lp`, `lpstat`, `lpinfo`).
