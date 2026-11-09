@@ -36,7 +36,8 @@ discovery, conversion or preview commands.
 
 `examples/test-label.png` is a **50 × 30 mm, 600 × 360 px** test image with
 orientation markers, a 10 mm square, 1–4 dot lines, a grayscale ramp and 1 mm
-ruler ticks. No Python example script is needed.
+ruler ticks. The examples enable `--dither` to approximate the grayscale ramp
+with black-and-white dots. No Python example script is needed.
 Check the loaded label dimensions, gap and printer serial settings first.
 The settings below (9600 baud, 8N1, no flow control) are adjustable starting
 values, not verified factory defaults.
@@ -46,13 +47,13 @@ values, not verified factory defaults.
 pytsc discover --json
 
 # Preview and generate TSPL offline, without connecting to a printer
-pytsc -m TTP-342 preview -l 50x30 examples/test-label.png -o /tmp/preview.png
-pytsc -m TTP-342 convert -l 50x30 --gap 2 examples/test-label.png -o /tmp/test.tspl
+pytsc -m TTP-342 preview -l 50x30 --dither examples/test-label.png -o /tmp/preview.png
+pytsc -m TTP-342 convert -l 50x30 --gap 2 --dither examples/test-label.png -o /tmp/test.tspl
 pytsc analyze /tmp/test.tspl --output-dir /tmp/pytsc-bitmaps
 
 # Substitute your device path, baud rate and gap; print one label
 pytsc -b serial -m TTP-342 -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 \
-  print -l 50x30 --gap 2 --copies 1 examples/test-label.png
+  print -l 50x30 --gap 2 --copies 1 --dither examples/test-label.png
 
 # Alternatively, send the generated instruction file (prints another label)
 pytsc -p /dev/cu.usbserial-YOUR_ADAPTER --baudrate 9600 send /tmp/test.tspl
@@ -102,7 +103,7 @@ Environment variables: `PYTSC_BACKEND`, `PYTSC_MODEL`, `PYTSC_PRINTER`,
 from pytsc import Printer
 
 with Printer("/dev/cu.usbserial-YOUR_ADAPTER", model="TTP-342", baudrate=9600) as printer:
-    result = printer.print_image("examples/test-label.png", label="50x30", gap=2)
+    result = printer.print_image("examples/test-label.png", label="50x30", gap=2, dither=True)
 ```
 
 The brother_ql-style split API keeps conversion independent of communication:
@@ -113,7 +114,7 @@ from pytsc.conversion import convert
 from pytsc.backends.helpers import discover, send
 
 raster = TSPLRaster("TTP-342")
-instructions = convert(raster, images=["examples/test-label.png"], label="50x30")
+instructions = convert(raster, images=["examples/test-label.png"], label="50x30", dither=True)
 # instructions is raw bytes, suitable for saving as a .tspl file.
 result = send(instructions, printer_identifier="/dev/cu.usbserial-YOUR_ADAPTER",
               backend_identifier="serial", baudrate=9600)
@@ -210,14 +211,14 @@ you can print directly (queue setup is automatic when permitted):
 
 ```sh
 pytsc -b cups -p 'usb://Unknown/IEEE-1284%20Controller?location=1140000' \
-  print -l 50x30 --gap 2 examples/test-label.png
+  print -l 50x30 --gap 2 --dither examples/test-label.png
 ```
 
 Alternatively, manually create a queue on CUPS versions supporting raw queues:
 
 ```sh
 sudo lpadmin -p TTP342 -E -v 'usb://Unknown/IEEE-1284%20Controller?location=1140000' -m raw
-pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 examples/test-label.png
+pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 --dither examples/test-label.png
 # Equivalently: -p cups://TTP342
 ```
 
