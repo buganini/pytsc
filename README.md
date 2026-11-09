@@ -9,8 +9,9 @@ API and honest transmission-result reporting.
 **Status: 0.1.0a1; no physical printer verification yet.** TTP-342 is a provisional
 300 dpi / 12 dots per mm, 104 mm maximum-width profile based on TSC documentation.
 The elitek-branded device's firmware, serial settings and bitmap compatibility
-must still be checked. Serial is the only implemented backend. Native USB,
-network, status polling, cutting and automatic calibration are not implemented.
+must still be checked. Serial and CUPS backends are implemented. Direct pyusb/network transports,
+status polling, cutting and automatic calibration are not implemented.
+USB printing through an installed CUPS queue is supported.
 
 ## Install
 
@@ -69,7 +70,7 @@ macOS 若沒有列出 adapter，先檢查轉接器是否插入、驅動與線材
 
 Global options precede the command, as in brother_ql:
 
-- `-b/--backend serial`, `-m/--model`, `-p/--printer`, `--debug`, `--version`.
+- `-b/--backend serial|cups`, `-m/--model`, `-p/--printer`, `--debug`, `--version`.
 - `--baudrate`, `--parity N|E|O`, `--stopbits 1|2` (8 data bits).
 - `--flow-control none|rtscts|dsrdtr`; this must match the printer and cable.
 - `--timeout 120`: whole-job transmission deadline, in seconds.
@@ -182,3 +183,45 @@ Tests use synthetic images and fake serial ports; they never print a label.
 - [TSC TSPL/TSPL2 manual, mirrored PDF](https://manuals.plus/m/f21e1cc8c532dfa7d3838ac4677bfd4b438f37282bd5460b0292b179a72fdec7_optim.pdf): BITMAP width in bytes, height in dots and mode 0 overwrite.
 - [TSC TTP-243/342 specification sheet, mirrored PDF](https://autoid.com.hk/pos/labelprinter/tsc/ttp-243.pdf): TTP-342 12 dots/mm profile basis; does not establish elitek firmware compatibility.
 - [pyserial API](https://pyserial.readthedocs.io/en/latest/pyserial_api.html): serial parameters and transport behavior.
+
+## macOS / Linux：CUPS USB 列印
+
+USB-to-IEEE-1284 adapters are CUPS printer devices, not serial ports. Use the
+`cups` backend on macOS or Linux with CUPS client tools (`lp`, `lpstat`, `lpinfo`).
+Windows print queues are not supported. No Python CUPS extension is required.
+
+```sh
+pytsc -b cups discover --json
+```
+
+Discovery lists configured queues (`cups://QUEUE`, `kind=queue`, `printable=true`)
+and unconfigured device URIs (`kind=device`, `printable=false`). `printable` means
+a queue exists, not that the printer is online/accepting jobs or TSPL-compatible.
+If device discovery requires privileges, is unavailable or times out, queue results
+remain visible with a warning record. Discovery never creates a queue or prints.
+
+For the reported device `usb://Unknown/IEEE-1284%20Controller?location=1140000`,
+create a queue first if none exists. On CUPS versions supporting raw queues:
+
+```sh
+sudo lpadmin -p TTP342 -E -v 'usb://Unknown/IEEE-1284%20Controller?location=1140000' -m raw
+pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 examples/test-label.png
+# Equivalently: -p cups://TTP342
+```
+
+Queue setup is an explicit administrator action, not performed by this library.
+Raw queues are deprecated in newer CUPS; if your version rejects them, configure
+a suitable queue using system printer settings and verify it accepts raw TSPL.
+The device URI can change when moving USB ports. `-p` accepts a queue name, not
+an unconfigured `usb://` URI. Baud rate and serial handshaking do not apply to CUPS.
+
+Submission uses `lp -d QUEUE -n 1 -o raw -o job-sheets=none,none -- -`, passing
+TSPL bytes on stdin without shell interpretation or document conversion. Copies
+are encoded in TSPL, so CUPS is always asked to spool one copy. Results report
+`outcome="queued"` and `job_id` when available; queue acceptance does not confirm
+printer receipt or physical printing. On a submission timeout/failure, inspect
+`lpstat -o QUEUE` before retrying. `--timeout` limits submission, not printing.
+
+Python: `Printer("TTP342", backend="cups")`, or
+`send(data, "TTP342", backend_identifier="cups")`. Serial-specific keyword
+arguments are not accepted by the CUPS API.

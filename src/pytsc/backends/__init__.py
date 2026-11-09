@@ -1,1 +1,1 @@
-"""Transport backends. Initial release supports serial only."""
+"""Serial and CUPS transports for raw TSPL jobs."""

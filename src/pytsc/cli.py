@@ -40,7 +40,7 @@ def emit(value, as_json):
 @click.option(
     "-b",
     "--backend",
-    type=click.Choice(["serial"]),
+    type=click.Choice(["serial", "cups"]),
     default="serial",
     envvar="PYTSC_BACKEND",
     show_default=True,
@@ -57,7 +57,7 @@ def emit(value, as_json):
     "-p",
     "--printer",
     envvar="PYTSC_PRINTER",
-    help="Serial device path, serial:///dev/cu.usbserial-… or COM3.",
+    help="Serial device path / COM3, or CUPS queue name / cups://QUEUE.",
 )
 @click.option(
     "--baudrate",
@@ -78,13 +78,13 @@ def emit(value, as_json):
     "--timeout",
     type=click.FloatRange(min=0, min_open=True),
     default=120,
-    help="Whole-job serial transmission deadline, seconds.",
+    help="Transport submission deadline, seconds.",
 )
 @click.option("--debug", is_flag=True, help="Log transmission size and port to stderr.")
 @click.version_option(__version__)
 @click.pass_context
 def cli(ctx, **options):
-    """Convert images to TSPL and send to serial label printers (experimental)."""
+    """Convert images to TSPL and send to serial or CUPS label printers (experimental)."""
     ctx.ensure_object(dict)
     ctx.obj.update(options)
 
@@ -92,26 +92,29 @@ def cli(ctx, **options):
 def transmit(ctx, data, as_json):
     options = ctx.obj
     if not options["printer"]:
-        raise ValueError("Use --printer or PYTSC_PRINTER to select a serial port")
+        raise ValueError("Use --printer or PYTSC_PRINTER to select a printer")
     if options["debug"]:
         click.echo(
-            f"Sending {len(data)} bytes to {options['printer']} at {options['baudrate']} baud",
+            f"Submitting {len(data)} bytes to {options['printer']} via {options['backend']}",
             err=True,
         )
-    result = send(
-        data,
-        options["printer"],
-        options["backend"],
-        baudrate=options["baudrate"],
-        parity=options["parity"],
-        stopbits=int(options["stopbits"]),
-        flow_control=options["flow_control"],
-        timeout=options["timeout"],
-    )
+    transport_options = {"timeout": options["timeout"]}
+    if options["backend"] == "serial":
+        transport_options.update(
+            baudrate=options["baudrate"],
+            parity=options["parity"],
+            stopbits=int(options["stopbits"]),
+            flow_control=options["flow_control"],
+        )
+    result = send(data, options["printer"], options["backend"], **transport_options)
     if as_json:
         emit(result, True)
     else:
-        click.echo(f"Sent {result['bytes_sent']} bytes; physical printing is not confirmed.")
+        click.echo(
+            f"{result['outcome']}: {result['bytes_sent']} bytes"
+            + (f"; CUPS job {result['job_id']}" if result.get("job_id") else "")
+            + "; physical printing is not confirmed."
+        )
 
 
 @cli.command("discover")
@@ -119,7 +122,7 @@ def transmit(ctx, data, as_json):
 @click.pass_context
 @errors
 def discover_command(ctx, as_json):
-    """List serial ports; this does not identify TSPL printers."""
+    """List serial ports, or CUPS queues and unconfigured devices."""
     emit(discover(ctx.obj["backend"]), as_json)
 
 
@@ -207,7 +210,7 @@ def image_options(fn):
 def print_command(ctx, images, label, as_json, **options):
     """Print IMAGE [IMAGE] ... as one-bit TSPL bitmaps."""
     if not ctx.obj["printer"]:
-        raise ValueError("Use --printer or PYTSC_PRINTER to select a serial port")
+        raise ValueError("Use --printer or PYTSC_PRINTER to select a printer")
     data = convert(TSPLRaster(ctx.obj["model"]), images, label, **options)
     transmit(ctx, data, as_json)
 

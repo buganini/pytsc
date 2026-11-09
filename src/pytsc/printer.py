@@ -1,20 +1,23 @@
-from .backends.serial import SerialBackend
+from .backends.helpers import open_backend
 from .conversion import convert
 from .raster import TSPLRaster
 
 
 class Printer:
-    """Reusable serial session. Prefer a with statement to close reliably."""
+    """Reusable transport session. Prefer a with statement to close reliably."""
 
-    def __init__(self, identifier, model="TTP-342", **serial_options):
+    def __init__(self, identifier, model="TTP-342", backend="serial", **transport_options):
         self.raster = TSPLRaster(model)
         self.identifier = identifier
-        self.serial_options = serial_options
+        self.backend_identifier = backend
+        self.transport_options = transport_options
         self.backend = None
 
     def open(self):
         if self.backend is None:
-            self.backend = SerialBackend(self.identifier, **self.serial_options)
+            self.backend = open_backend(
+                self.identifier, self.backend_identifier, **self.transport_options
+            )
         return self
 
     def close(self):
