@@ -120,3 +120,31 @@ one copy as job 31. Despite recreating the queue, CUPS logged USB pipe stalled
 during write and `Sent 0 bytes`; the job left the queue with a transport error.
 No BAR-image hardware result was obtained and no retry was performed. This mode
 is not claimed to repair the underlying USB endpoint stalls.
+
+### Upstream implementation review
+
+- OpenPrinting's USB quirk table explicitly lists PL2305 `067b:2305` with
+  `no-reattach soft-reset unidir`:
+  https://github.com/OpenPrinting/cups/blob/master/backend/org.cups.usb-quirks
+- Its linked historical bug describes successful first printing followed by
+  non-response until power cycling (Linux, HP 4L; not proof for our TSC/macOS case):
+  https://bugs.launchpad.net/ubuntu/+source/cups/+bug/987485
+- Apple's reviewed `usb-darwin.c` opens the printer class driver in bidirectional
+  mode first, falling back to unidirectional only if opening fails. Its URI parser
+  handles waiteof, serial and location, not the Linux quirk table. Do not assume
+  adding a Linux usb-quirks file or a made-up unidir URI parameter affects macOS:
+  https://github.com/apple/cups/blob/master/backend/usb-darwin.c
+- RayforLoy/TSC-Printer uses TSCLIB.dll `sendcommand` and works around NUL bytes
+  by modifying the bitmap and drawing a second overlay. That string/DLL path is
+  different from pytsc's byte-preserving subprocess stdin; do not copy the workaround
+  without evidence of NUL truncation in this transport:
+  https://github.com/RayforLoy/TSC-Printer/blob/master/bitmap.py
+- cbiffle/raster-tspl-rs packs MSB-first rows, byte-width headers and unencoded
+  binary payloads. Its Beeprt implementation uses mode 1 with inverted bits,
+  unlike our overwrite mode 0. Its firmware-specific settings are not TTP-342
+  support evidence:
+  https://github.com/cbiffle/raster-tspl-rs/blob/main/src/main.rs
+
+The PL2305 transport workaround is the strongest new lead. It motivates testing
+unidirectional USB access and reset handling in a separately controlled backend,
+not claiming a proven TSPL encoder defect or blindly changing macOS system drivers.
