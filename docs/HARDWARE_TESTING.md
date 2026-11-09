@@ -195,7 +195,19 @@ routine test batch is required before using the successful settings. The model's
 repeatability checks.
 
 
-The successful 102 mm width is a tested media setting, not a fixed printer width
-or a requirement for correct bitmap output. A 100 mm width has not yet been
-verified using this successful PyUSB path. Previous CUPS corruption does not
-establish a width-dependent encoder or firmware fault.
+### Successful 90 mm width test (2026-11-09)
+
+The user subsequently confirmed normal printing at 90 mm using the successful
+PyUSB path. Together with the successful 102 mm output, this shows that 102 mm
+is not required for correct bitmap output. It remains the media setting used in
+the main example, not a fixed printer width or a corruption workaround. Set the
+label dimensions according to the loaded media.
+
+The earlier CUPS USB stalls and corruption that changed after reconnecting,
+followed by successful PyUSB output at different widths, point more strongly to
+transport or buffering behavior than to a width-only explanation. This is an
+inference, not an isolated root cause: direct access, unidirectional mode and
+512-byte writes with 10 ms pacing changed together. Soft reset is disabled on
+the successful path. No individual transport change has been proven decisive,
+and CUPS reliability remains unresolved. The 90 mm report does not independently
+confirm the previously suggested 100 mm test.

@@ -9,8 +9,9 @@ USB-to-IEEE-1284 adapter on macOS**, using direct PyUSB access. RS-232 via
 honest transmission-result reporting.
 
 **Status: 0.1.0a1; experimental, with successful direct-USB physical tests.**
-Native/BITMAP comparisons, a full dithered image, and a subsequent four-label
-test batch were reported to print correctly with soft reset disabled. CUPS on this adapter still showed
+Native/BITMAP comparisons, a full dithered image, a subsequent four-label
+test batch, and a 90 mm width test were reported to print correctly with soft
+reset disabled. CUPS on this adapter still showed
 corruption and stalls. Long-run reliability and exact geometry remain unverified;
 see [hardware test notes](docs/HARDWARE_TESTING.md). TTP-342 uses a provisional
 300 dpi / 12 dots per mm, 104 mm maximum-width profile. Network transport,
@@ -52,9 +53,12 @@ pytsc -p pyusb://067b:2305 --timeout 20 \
 ```
 
 The 102 mm width records the tested media setting; it is not a fixed printer
-width or a requirement for correct printing. A 100 mm width has not yet been
-verified through the successful PyUSB path. Earlier corruption occurred through
-CUPS and has not been established as a width-related problem.
+width or a requirement for correct printing. The user also confirmed normal
+output at 90 mm through PyUSB. Choose the label size to match the loaded media.
+Earlier CUPS corruption and USB stalls point more strongly to the transport path
+than to a requirement for a particular width. The tests do not isolate whether
+bypassing CUPS, unidirectional USB mode, or transfer pacing resolved the problem;
+102 mm should not be treated as a workaround for corruption.
 
 The user subsequently reported that all four labels in the follow-up test batch
 printed normally. The suggested commands included repeated single-label printing,
@@ -390,6 +394,6 @@ the session. `sent` means USB writes completed, not physical printing.
 
 With reset disabled, user-confirmed output includes two consecutive matching
 native/BITMAP comparison labels, a full dithered test image, and a subsequent
-four-label batch reported as normal. This validates
+four-label batch and a 90 mm width test reported as normal. This validates
 the tested path, but does not isolate whether unidirectional mode, pacing, or
 bypassing CUPS resolved the earlier corruption.
