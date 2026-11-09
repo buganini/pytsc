@@ -51,6 +51,11 @@ pytsc -p pyusb://067b:2305 --timeout 20 \
   print -l 102x76.2 --gap 3 --fit contain --dither examples/test-label.png
 ```
 
+The 102 mm width records the tested media setting; it is not a fixed printer
+width or a requirement for correct printing. A 100 mm width has not yet been
+verified through the successful PyUSB path. Earlier corruption occurred through
+CUPS and has not been established as a width-related problem.
+
 For a final repeatability check, repeat that command without rebooting or
 reconnecting, then add `--copies 2` to check two-label feeding and alignment.
 These checks have not yet been reported as completed.
@@ -365,6 +370,8 @@ Use `pyusb://067b:2305/BUS/ADDRESS` if multiple adapters are attached. USB bus/a
 may change on reconnection. Existing `usb://...` identifiers still mean CUPS;
 `pyusb://...` selects direct access. Default discovery includes optional pyusb and
 reports missing dependencies as a warning without suppressing other backends.
+Direct USB discovery reports `vendor_id` and `product_id` as four-digit hexadecimal
+strings (for example, `0x067b` and `0x2305`), including in JSON output.
 
 Global options: `--usb-chunk-size`, `--usb-write-delay-ms`, and
 `--usb-soft-reset/--no-usb-soft-reset`. Python `send`/`Printer` accept `chunk_size`,

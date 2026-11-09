@@ -189,3 +189,9 @@ Remaining optional acceptance checks: repeat the full image without restarting,
 and print with `--copies 2` to check count and feed alignment. Neither has yet
 been confirmed. The model's `hardware_verified` flag remains false pending
 geometry and broader repeatability checks.
+
+
+The successful 102 mm width is a tested media setting, not a fixed printer width
+or a requirement for correct bitmap output. A 100 mm width has not yet been
+verified using this successful PyUSB path. Previous CUPS corruption does not
+establish a width-dependent encoder or firmware fault.
