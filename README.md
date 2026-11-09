@@ -9,8 +9,8 @@ USB-to-IEEE-1284 adapter on macOS**, using direct PyUSB access. RS-232 via
 honest transmission-result reporting.
 
 **Status: 0.1.0a1; experimental, with successful direct-USB physical tests.**
-Two consecutive native/BITMAP comparison labels and one full dithered image
-printed correctly with soft reset disabled. CUPS on this adapter still showed
+Native/BITMAP comparisons, a full dithered image, and a subsequent four-label
+test batch were reported to print correctly with soft reset disabled. CUPS on this adapter still showed
 corruption and stalls. Long-run reliability and exact geometry remain unverified;
 see [hardware test notes](docs/HARDWARE_TESTING.md). TTP-342 uses a provisional
 300 dpi / 12 dots per mm, 104 mm maximum-width profile. Network transport,
@@ -56,9 +56,11 @@ width or a requirement for correct printing. A 100 mm width has not yet been
 verified through the successful PyUSB path. Earlier corruption occurred through
 CUPS and has not been established as a width-related problem.
 
-For a final repeatability check, repeat that command without rebooting or
-reconnecting, then add `--copies 2` to check two-label feeding and alignment.
-These checks have not yet been reported as completed.
+The user subsequently reported that all four labels in the follow-up test batch
+printed normally. The suggested commands included repeated single-label printing,
+`--copies 2`, and an optional 100 mm width comparison. The exact commands used
+were not specified, so this report does not independently confirm the 100 mm case.
+No further routine test batch is required before using the successful settings.
 
 Generate and inspect the same raster offline:
 
@@ -387,6 +389,7 @@ Partial writes are handled; errors report known acknowledged bytes and invalidat
 the session. `sent` means USB writes completed, not physical printing.
 
 With reset disabled, user-confirmed output includes two consecutive matching
-native/BITMAP comparison labels and one full dithered test image. This validates
+native/BITMAP comparison labels, a full dithered test image, and a subsequent
+four-label batch reported as normal. This validates
 the tested path, but does not isolate whether unidirectional mode, pacing, or
 bypassing CUPS resolved the earlier corruption.

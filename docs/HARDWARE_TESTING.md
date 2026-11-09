@@ -185,10 +185,14 @@ remain unchanged. This does not establish which transport change was decisive,
 and does not establish a fix for CUPS. The earlier failed reset experiment above
 is retained as historical evidence.
 
-Remaining optional acceptance checks: repeat the full image without restarting,
-and print with `--copies 2` to check count and feed alignment. Neither has yet
-been confirmed. The model's `hardware_verified` flag remains false pending
-geometry and broader repeatability checks.
+Follow-up report (2026-11-09): the user confirmed that all four labels printed
+normally. Suggested tests were repeated single-label printing, `--copies 2`, and
+an optional 100 mm width comparison. The report did not enumerate the commands
+actually run; do not infer specific width, copy-count, or no-restart coverage
+from the total alone. This adds successful physical output evidence; no further
+routine test batch is required before using the successful settings. The model's
+`hardware_verified` flag remains false pending measured geometry and broader
+repeatability checks.
 
 
 The successful 102 mm width is a tested media setting, not a fixed printer width
