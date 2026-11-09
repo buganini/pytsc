@@ -2,14 +2,15 @@
 
 Experimental Python library and CLI for TSC/TSPL label printers, with an API and
 Click CLI modeled after [brother_ql](https://github.com/pklaus/brother_ql).
-The initial target is **elitek TTP-342 through an RS-232/USB adapter**, using
-**pyserial**. [pyniim](https://github.com/buganini/pyniim) also informs the convenience
+The current hardware target is **elitek TTP-342 through a USB-to-IEEE-1284 adapter
+on macOS CUPS**. RS-232 is also supported through **pyserial**, but is untested on
+this device. [pyniim](https://github.com/buganini/pyniim) also informs the convenience
 API and honest transmission-result reporting.
 
-**Status: 0.1.0a1; no physical printer verification yet.** TTP-342 is a provisional
+**Status: 0.1.0a1; experimental physical output, unresolved corruption/stalls.** TTP-342 is a provisional
 300 dpi / 12 dots per mm, 104 mm maximum-width profile based on TSC documentation.
-The elitek-branded device's firmware, serial settings and bitmap compatibility
-must still be checked. Serial and CUPS backends are implemented. Direct pyusb/network transports,
+The elitek-branded device's firmware, geometry and reliable bitmap compatibility
+must still be checked; see [hardware test notes](docs/HARDWARE_TESTING.md). Serial and CUPS backends are implemented. Direct pyusb/network transports,
 status polling, cutting and automatic calibration are not implemented.
 USB printing through an installed CUPS queue is supported.
 

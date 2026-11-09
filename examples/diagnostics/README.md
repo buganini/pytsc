@@ -23,3 +23,19 @@ pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=114
 If only B fails, investigate width-dependent bitmap handling. If both fail,
 transport or other firmware behavior remains possible. These tests do not by
 themselves establish a root cause. Each send physically prints one label.
+
+## C: native TSPL control
+
+`c-native.tspl` uses SIZE 102 × 76.2 mm, GAP 3 mm, native TEXT/BOX/BAR commands,
+and one PRINT. It contains no bitmap and sends only 661 bytes. Expected output:
+one outer frame, four horizontal rectangular rows labeled with their Y coordinates,
+three vertical lines (which intentionally cross some text), and a header/footer.
+
+```sh
+pytsc -p 'usb://Prolific%20Technology%20Inc./IEEE-1284%20Controller?location=1140000' send examples/diagnostics/c-native.tspl
+```
+
+If native geometry is correct but bitmaps corrupt, concentrate on binary transfer,
+bitmap handling and payload size. A successful 661-byte job alone does not prove
+that a 100+ KB job transfers reliably. If native geometry is also wrong, check
+printer configuration and media handling before attributing everything to BITMAP.
