@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytsc"
+version = "0.1.0a1"
+description = "TSPL label printing with a brother_ql-inspired API and serial transport"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["Pillow>=10,<14", "click>=8.1,<9", "pyserial>=3.5,<4"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "build>=1", "ruff>=0.9"]
+
+[project.scripts]
+pytsc = "pytsc.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
