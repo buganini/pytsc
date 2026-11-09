@@ -217,7 +217,11 @@ pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 examples/test-label.pn
 ```
 
 When passing a USB URI to print/send, pytsc reuses an exactly matching queue or
-creates a persistent raw queue named `pytsc_<URI hash>` and verifies its device URI.
+creates a persistent queue named `pytsc_<URI hash>` and verifies its device URI.
+On macOS it uses the system Generic PostScript PPD (`lpadmin -P`), because macOS
+rejects `-m raw`. TSPL jobs still use `lp -o raw` to bypass PPD rendering; this does
+not make the printer PostScript-compatible. Do not use the generic queue for normal
+macOS document printing. Linux currently uses `-m raw`.
 It never invokes sudo automatically. Permission errors include the exact setup
 command; unsupported raw queues require system printer configuration.
 Raw queues are deprecated in newer CUPS; if your version rejects them, configure

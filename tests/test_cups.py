@@ -123,6 +123,7 @@ def test_usb_reuses_queue_without_creating(monkeypatch):
 
 
 def test_usb_creates_and_verifies_queue(monkeypatch):
+    monkeypatch.setattr("pytsc.backends.cups._queue_driver_options", lambda: ["-m", "raw"])
     import hashlib
 
     uri = "usb://Unknown/Printer?location=1140000"
@@ -175,3 +176,38 @@ def test_backend_resolution():
     for identifier in ("usb://Unknown/Printer", "cups://TSC"):
         assert resolve_backend(identifier) == "cups"
     assert resolve_backend("usb://Unknown/Printer", "serial") == "serial"
+
+
+@pytest.mark.parametrize("platform", ["darwin", "linux"])
+def test_queue_driver_options(platform, monkeypatch, tmp_path):
+    from pytsc.backends import cups
+
+    ppd = tmp_path / "Generic.ppd"
+    ppd.write_text("test")
+    monkeypatch.setattr(cups.sys, "platform", platform)
+    monkeypatch.setattr(cups, "MACOS_GENERIC_PPD", ppd)
+    assert cups._queue_driver_options() == (
+        ["-P", str(ppd)] if platform == "darwin" else ["-m", "raw"]
+    )
+
+
+def test_macos_missing_ppd_stops_before_creation(monkeypatch, tmp_path):
+    from pytsc.backends import cups
+
+    monkeypatch.setattr(cups.sys, "platform", "darwin")
+    monkeypatch.setattr(cups, "MACOS_GENERIC_PPD", tmp_path / "missing")
+    run = Mock(return_value=completed())
+    monkeypatch.setattr(cups.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="Generic.ppd is unavailable"):
+        CUPSBackend("usb://Unknown/Printer").send(b"CLS\r\n")
+    assert run.call_count == 1
+
+
+def test_unsupported_raw_error_does_not_recommend_sudo(monkeypatch):
+    run = Mock(
+        side_effect=[completed(), completed(stderr=b"Raw queues are no longer supported", code=1)]
+    )
+    monkeypatch.setattr("pytsc.backends.cups.subprocess.run", run)
+    with pytest.raises(RuntimeError) as exc:
+        CUPSBackend("usb://Unknown/Printer").send(b"CLS\r\n")
+    assert "sudo" not in str(exc.value)

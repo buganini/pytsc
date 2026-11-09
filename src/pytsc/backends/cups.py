@@ -6,6 +6,8 @@ import os
 import re
 import shlex
 import subprocess
+import sys
+from pathlib import Path
 from urllib.parse import urlsplit
 
 from ..errors import PrintError
@@ -83,6 +85,25 @@ def discover():
     return records
 
 
+MACOS_GENERIC_PPD = Path(
+    "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/"
+    "PrintCore.framework/Versions/A/Resources/Generic.ppd"
+)
+
+
+def _queue_driver_options():
+    # macOS rejects `-m raw` at queue creation. A PPD-backed queue still accepts
+    # per-job `lp -o raw`; the PPD is not used to render our TSPL payload.
+    if sys.platform == "darwin":
+        if not MACOS_GENERIC_PPD.is_file():
+            raise RuntimeError(
+                "macOS Generic.ppd is unavailable; configure a CUPS queue in system settings "
+                "and pass its name with -b cups. No queue or print job was created."
+            )
+        return ["-P", str(MACOS_GENERIC_PPD)]
+    return ["-m", "raw"]
+
+
 def _resolve_usb(uri):
     queues = _queues()
     matches = sorted(row["queue"] for row in queues if row["device_uri"] == uri)
@@ -91,7 +112,7 @@ def _resolve_usb(uri):
     queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
     if any(row["queue"].lower() == queue.lower() for row in queues):
         raise RuntimeError(f"CUPS queue name collision: {queue}; existing queue was not modified")
-    command = ["lpadmin", "-p", queue, "-E", "-v", uri, "-m", "raw"]
+    command = ["lpadmin", "-p", queue, "-E", "-v", uri, *_queue_driver_options()]
     try:
         response = _run(command)
     except subprocess.TimeoutExpired as exc:
@@ -100,11 +121,23 @@ def _resolve_usb(uri):
         ) from exc
     if response.returncode:
         message = response.stderr.decode(errors="replace").strip()
-        raise RuntimeError(
-            f"Cannot create CUPS queue: {message}. If administrator permission is required, run: "
-            + shlex.join(["sudo", *command])
-            + ". If raw queues are unsupported, configure a compatible queue in system settings."
+        permission_error = any(
+            token in message.lower()
+            for token in (
+                "forbidden",
+                "not authorized",
+                "unauthorized",
+                "permission",
+                "not permitted",
+                "authentication",
+            )
         )
+        advice = (
+            " Administrator permission is required; run: " + shlex.join(["sudo", *command])
+            if permission_error
+            else " Configure a compatible CUPS queue in system settings and pass its name with -b cups."
+        )
+        raise RuntimeError(f"Cannot create CUPS queue: {message}." + advice)
     if not any(row["queue"] == queue and row["device_uri"] == uri for row in _queues()):
         raise RuntimeError("Created CUPS queue could not be verified; no print job submitted")
     return queue
