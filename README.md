@@ -223,8 +223,21 @@ pytsc -b cups -m TTP-342 -p TTP342 print -l 50x30 --gap 2 --dither examples/test
 # Equivalently: -p cups://TTP342
 ```
 
-When passing a USB URI to print/send, pytsc reuses an exactly matching queue or
-creates a persistent queue named `pytsc_<URI hash>` and verifies its device URI.
+Before each CUPS print/send, pytsc now **deletes and recreates the target USB queue
+by default**, as intended for this exclusively used printer. This discards all
+pending jobs and custom settings in that queue. An existing queue keeps its name;
+a new USB URI uses `pytsc_<URI hash>`. The resulting device URI is verified.
+Use the global `--no-recreate-cups-queue` option to retain and reuse the queue:
+
+```sh
+pytsc --no-recreate-cups-queue -p 'cups://TTP342' send /tmp/test.tspl
+```
+
+Python callers can pass `recreate_queue=False` to `Printer` or `send`. The default
+is `True`. Named queues must target USB for automatic recreation; other CUPS
+transports require opting out. Queue deletion/creation failures stop submission.
+Discovery and status never recreate queues. Recreation resets CUPS configuration,
+not necessarily a stalled USB endpoint; hardware reliability remains unverified.
 On macOS it uses the system Generic PostScript PPD (`lpadmin -P`), because macOS
 rejects `-m raw`. TSPL jobs still use `lp -o raw` to bypass PPD rendering; this does
 not make the printer PostScript-compatible. Do not use the generic queue for normal
@@ -253,7 +266,7 @@ the CLI scan. Printing automatically selects CUPS for `usb://` and `cups://` ide
 and serial otherwise. Bare CUPS queue names require `-b cups`. Explicit `-b` or
 `PYTSC_BACKEND` takes precedence over inference. Python `Printer` and `send()`
 use the same inference when no backend is provided.
-Discovery never creates queues. USB queue resolution/creation happens only when
+Discovery never creates queues. USB queue resolution/recreation happens only when
 sending a nonempty job; no print job is submitted if setup or verification fails.
 
 ## Troubleshooting stalled CUPS jobs
@@ -269,7 +282,7 @@ CUPS's default `stop-printer` error policy can disable a queue after a failed jo
 new pytsc-created queues use `printer-error-policy=abort-job` instead. This aborts
 the failed job without automatically replaying it or stopping later jobs. It does
 not fix USB communication failures or guarantee that partially sent data was cleared.
-Existing queues retain their policy; to update a pytsc queue explicitly:
+When recreation is disabled, existing queues retain their policy; to update one explicitly:
 
 ```sh
 lpadmin -p QUEUE -o printer-error-policy=abort-job

@@ -81,6 +81,12 @@ def emit(value, as_json):
     default=120,
     help="Transport submission deadline, seconds.",
 )
+@click.option(
+    "--recreate-cups-queue/--no-recreate-cups-queue",
+    default=True,
+    help="Recreate the target USB CUPS queue before each send; removes pending jobs.",
+    show_default=True,
+)
 @click.option("--debug", is_flag=True, help="Log transmission size and port to stderr.")
 @click.version_option(__version__)
 @click.pass_context
@@ -108,6 +114,8 @@ def transmit(ctx, data, as_json):
             stopbits=int(options["stopbits"]),
             flow_control=options["flow_control"],
         )
+    if backend == "cups":
+        transport_options["recreate_queue"] = options["recreate_cups_queue"]
     result = send(data, options["printer"], backend, **transport_options)
     if as_json:
         emit(result, True)

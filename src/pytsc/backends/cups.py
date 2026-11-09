@@ -104,14 +104,48 @@ def _queue_driver_options():
     return ["-m", "raw"]
 
 
-def _resolve_usb(uri):
+def _delete_queue(queue):
+    try:
+        response = _run(["lpadmin", "-x", queue])
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("CUPS queue deletion timed out; inspect lpstat before retrying") from exc
+    if response.returncode:
+        raise RuntimeError(
+            "Cannot delete CUPS queue: " + response.stderr.decode(errors="replace").strip()
+        )
+
+
+def _recreate_named_queue(queue):
+    matches = [row for row in _queues() if row["queue"].lower() == queue.lower()]
+    if len(matches) != 1:
+        raise ValueError(f"Cannot resolve device URI for CUPS queue {queue}")
+    uri = matches[0]["device_uri"]
+    # Restrict this reset workflow to the USB printer transport we implement.
+    if not uri.startswith("usb://"):
+        raise ValueError(
+            "Automatic queue recreation supports USB queues only; use --no-recreate-cups-queue"
+        )
+    # Keep the explicitly selected queue, even if other queues share its URI.
+    _queue_driver_options()
+    _delete_queue(matches[0]["queue"])
+    return _resolve_usb(uri, queue_name=matches[0]["queue"])
+
+
+def _resolve_usb(uri, *, recreate=False, queue_name=None):
     queues = _queues()
     matches = sorted(row["queue"] for row in queues if row["device_uri"] == uri)
-    if matches:
+    if matches and not recreate and queue_name is None:
         return matches[0]
-    queue = "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
-    if any(row["queue"].lower() == queue.lower() for row in queues):
+    queue = queue_name or "pytsc_" + hashlib.sha256(uri.encode()).hexdigest()[:16]
+    if any(row["queue"].lower() == queue.lower() and row["device_uri"] != uri for row in queues):
         raise RuntimeError(f"CUPS queue name collision: {queue}; existing queue was not modified")
+    # Resolve driver availability before deleting the old destination.
+    driver_options = _queue_driver_options()
+    if recreate and matches:
+        # This printer is exclusively owned by the caller. Deleting the queue
+        # intentionally removes its pending jobs; do not replay those jobs.
+        queue = matches[0]
+        _delete_queue(queue)
     command = [
         "lpadmin",
         "-p",
@@ -119,7 +153,7 @@ def _resolve_usb(uri):
         "-E",
         "-v",
         uri,
-        *_queue_driver_options(),
+        *driver_options,
         "-o",
         "printer-error-policy=abort-job",
     ]
@@ -183,7 +217,8 @@ def status(identifier):
 
 
 class CUPSBackend:
-    def __init__(self, identifier, *, timeout=120):
+    def __init__(self, identifier, *, timeout=120, recreate_queue=True):
+        self.recreate_queue = recreate_queue
         if not math.isfinite(timeout) or timeout <= 0:
             raise ValueError("timeout must be positive and finite")
         if not isinstance(identifier, str) or not identifier:
@@ -214,7 +249,9 @@ class CUPSBackend:
         if not isinstance(data, bytes) or not data:
             raise ValueError("Instructions must be nonempty bytes")
         if self.device_uri:
-            self.queue = _resolve_usb(self.device_uri)
+            self.queue = _resolve_usb(self.device_uri, recreate=self.recreate_queue)
+        elif self.recreate_queue:
+            self.queue = _recreate_named_queue(self.queue)
         result = dict(
             instructions_sent=False,
             outcome="unknown",

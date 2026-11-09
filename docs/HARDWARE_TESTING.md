@@ -95,3 +95,13 @@ Job 28 reported `The printer is offline` and remained pending. It was canceled;
 E480/E720 were not sent. The same small job can therefore fail on a subsequent
 attempt without increasing bitmap dimensions or bytes. This is evidence of an
 independent connection-state/repeatability issue, not proof of its underlying cause.
+
+
+### Exclusive queue recreation mode
+
+At the user's request, CUPS submission now defaults to deleting and recreating the
+target USB queue before each job. Pending jobs/custom settings are discarded.
+`--no-recreate-cups-queue` / `recreate_queue=False` retains the old reuse behavior.
+This is an explicitly requested recovery experiment; no successful repeated-job
+hardware evidence has yet established that recreation fixes endpoint stalls or
+bitmap corruption. Serial, discovery and status operations are unaffected.
