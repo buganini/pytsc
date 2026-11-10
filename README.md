@@ -303,7 +303,7 @@ hardware compatibility on other operating systems.
 
 ## References
 
-- [brother_ql](https://github.com/pklaus/brother_ql): API/CLI design reference; no implementation code copied.
+- [brother_ql](https://github.com/pklaus/brother_ql): API/CLI design reference; see the source review below.
 - [pyniim](https://github.com/buganini/pyniim): convenience API and result conventions; local checkout reviewed.
 - [tsclib](https://pypi.org/project/tsclib/): native TSPL operations reference; this project does not wrap its Windows DLL.
 - [TSC downloads](https://usca.tscprinters.com/en/downloads): TSPL/TSPL2 programming manuals.
@@ -501,3 +501,7 @@ bypassing CUPS resolved the earlier corruption.
 This project is licensed under the [MIT License](LICENSE). Third-party packages
 remain covered by their own licenses. The projects listed under References inform
 the API and protocol research; they are not bundled printer drivers.
+
+See [third-party sources and license review](docs/THIRD_PARTY.md) for the
+reference/code distinction, file-specific license findings, runtime dependencies
+and the scope of the 2026-11-10 review.
