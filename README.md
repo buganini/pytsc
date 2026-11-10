@@ -8,6 +8,10 @@ USB-to-IEEE-1284 adapter on macOS**, using direct PyUSB access. RS-232 via
 [pyniim](https://github.com/buganini/pyniim) informs the convenience API and
 honest transmission-result reporting.
 
+This project is developed with assistance from **OpenAI Codex**, including
+implementation, tests, documentation, and hardware troubleshooting. Physical
+printing results are confirmed by the user on the actual printer.
+
 **Status: 0.1.0a1; experimental, with successful direct-USB physical tests.**
 Native/BITMAP comparisons, a full dithered image, a subsequent four-label
 test batch, and a 90 mm width test were reported to print correctly with soft
@@ -32,8 +36,10 @@ pytsc discover
 
 Dependencies: Pillow for raster conversion, Click for CLI, pyserial for RS-232.
 No Windows DLL or .NET runtime is needed. Serial discovery lists ports and adapter
-metadata; it cannot identify the printer behind an adapter. No port is opened by
-discovery, conversion or preview commands.
+metadata; it cannot identify the printer behind an adapter. Discovery does not
+open a serial port or submit a print job. Conversion and preview are offline.
+For serial or CUPS only, install with `python -m pip install -e .`; the `usb` extra
+adds PyUSB and also requires a system libusb library.
 
 ## Hardware test: print the supplied image
 
@@ -96,9 +102,10 @@ Global options precede the command, as in brother_ql:
 - `--flow-control none|rtscts|dsrdtr`; this must match the printer and cable.
 - `--timeout 120`: whole-job transmission deadline, in seconds.
 
-Commands: `discover`, `info models|labels|env`, `print`, `send`, `analyze`.
+Commands: `discover`, `info models|labels|env`, `print`, `send`, `analyze`, `status`.
+`status` queries CUPS queues only; it does not query the physical printer.
 `convert` and `preview` are offline extensions. `print`, `send`, `discover`, `info`
-and `analyze` support `--json`. Debug messages go to stderr.
+`status` and `analyze` support `--json`. Debug messages go to stderr.
 
 Image commands accept `-l/--label WIDTHxHEIGHT`, `-r/--rotate`, `-t/--threshold`,
 `-d/--dither`, `--fit`, `--gap`, `--media gap|black-mark|continuous`, `--density`,
@@ -117,8 +124,10 @@ Environment variables: `PYTSC_BACKEND`, `PYTSC_MODEL`, `PYTSC_PRINTER`,
 ```python
 from pytsc import Printer
 
-with Printer("/dev/cu.usbserial-YOUR_ADAPTER", model="TTP-342", baudrate=9600) as printer:
-    result = printer.print_image("examples/test-label.png", label="50x30", gap=2, dither=True)
+with Printer("pyusb://067b:2305", model="TTP-342") as printer:
+    result = printer.print_image(
+        "examples/test-label.png", label="102x76.2", gap=3, fit="contain", dither=True
+    )
 ```
 
 The brother_ql-style split API keeps conversion independent of communication:
@@ -129,13 +138,19 @@ from pytsc.conversion import convert
 from pytsc.backends.helpers import discover, send
 
 raster = TSPLRaster("TTP-342")
-instructions = convert(raster, images=["examples/test-label.png"], label="50x30", dither=True)
+instructions = convert(
+    raster,
+    images=["examples/test-label.png"],
+    label="102x76.2",
+    gap=3,
+    fit="contain",
+    dither=True,
+)
 # instructions is raw bytes, suitable for saving as a .tspl file.
 result = send(
     instructions,
-    printer_identifier="/dev/cu.usbserial-YOUR_ADAPTER",
-    backend_identifier="serial",
-    baudrate=9600,
+    printer_identifier="pyusb://067b:2305",
+    backend_identifier="pyusb",
 )
 ```
 
@@ -144,7 +159,16 @@ Pillow. It composites transparency onto white, optionally rotates/resizes,
 converts to monochrome, then emits `SIZE`, media settings, `CLS`, `BITMAP` and
 `PRINT`. Multiple inputs produce sequential labels; multi-frame image files
 only use the selected/first frame. Existing `raster.data` is replaced only after
-successful conversion. SVG/PDF/text layout must be rasterized first.
+successful conversion. Common inputs include PNG, JPEG, BMP, GIF and TIFF,
+depending on the installed Pillow build. SVG, PDF, HTML and text layout must be
+rasterized first. The printer receives TSPL bytes, not the original image file.
+Label dimensions are millimeters: width along the printhead × feed length.
+`copies` defaults to 1 and applies to each input image.
+
+The API is synchronous. `blocking=True` waits for transport submission, not
+physical completion; `blocking=False` is rejected. There is no `AsyncPrinter`
+or asynchronous discovery/send API in this release. A `.tspl` file contains raw
+printer instructions, unlike pyniim's structured `.niim` job files.
 
 Native commands are also available through the chainable builder:
 
@@ -191,6 +215,75 @@ garbled or truncated, verify baud/parity/stop bits, RS-232 cable wiring and hard
 flow control, label/ribbon setup and TSPL mode before resending. Record measured
 results in [docs/HARDWARE_TESTING.md](docs/HARDWARE_TESTING.md).
 
+## Comparison with brother_ql and pyniim
+
+| Interface | pytsc behavior |
+| --- | --- |
+| Raster builder | `TSPLRaster(model)` corresponds to `BrotherQLRaster` / `NiimbotRaster` |
+| `convert()` | Returns raw TSPL `bytes`; pyniim returns a structured `PrintJob` |
+| `discover()` / `send()` | Available under `backends.helpers`; backend selection supports serial, CUPS and PyUSB |
+| Common CLI options | `-b`, `-m`, `-p`, `-l`, `-r`, `-t`, `-d` retain corresponding meanings |
+| `--copies` | pytsc and pyniim extension; not an option in the reviewed brother_ql CLI |
+| `Printer.print_image()` | Convenience API also offered by pyniim |
+| Physical completion | Not confirmed by pytsc; pyniim can report device-confirmed completion |
+
+`convert`, `preview`, CUPS `status`, `--fit`, `--bitmap-rows` and `--raster-mode`
+are pytsc extensions to the brother_ql workflow. TSPL media, density, speed and
+copy settings are protocol-specific. Brother two-color, compression, 600 DPI,
+quality and cutting options are not implemented. These packages' instruction
+files and printer protocols are not interchangeable.
+
+## Model profiles and support
+
+| Profile | Resolution | Current evidence |
+| --- | --- | --- |
+| `TTP-342` | 300 DPI / 12 dots per mm | Successful user-reported elitek TTP-342 output through PL2305/PyUSB on macOS |
+| `generic-203` | 203 DPI / 8 dots per mm | Generic TSPL profile; no hardware test recorded |
+| `generic-300` | 300 DPI / 12 dots per mm | Generic TSPL profile; no hardware test recorded |
+
+All current profiles cap label width at 104 mm and retain `hardware_verified=False`;
+that limit is not a measured usable width for every printer. Select a profile
+matching the actual printhead. Unknown models are rejected. `info labels` lists
+example sizes, not a catalog of verified media. Successful output does not yet
+qualify exact geometry, all firmware versions or long-run reliability.
+
+## Scriptable results
+
+```sh
+pytsc -p pyusb://067b:2305 print --json -l 102x76.2 --gap 3 \
+  --fit contain --dither examples/test-label.png
+pytsc -p pyusb://067b:2305 send --json /tmp/test.tspl
+```
+
+| Field | Meaning |
+| --- | --- |
+| `instructions_sent` | All bytes were submitted successfully |
+| `outcome` | `sent` for serial/USB, `queued` for CUPS; failures may leave `unknown` |
+| `bytes_sent` | Known submitted bytes, not a printer-side receipt count |
+| `did_print` | Remains false because physical printing is not confirmed |
+| `ready_for_next_job` | Remains false because printer readiness is not confirmed |
+| `printer_state` | `None`; physical status is not queried |
+| `job_id` | CUPS job identifier when available |
+
+With `--json`, print/send success emits one JSON object and exits 0. Runtime
+failures exit 1 and add `error`; `PrintError` preserves its progress fields.
+Failures before progress is available return `outcome="error"` and `error`.
+Click argument errors use stderr and exit 2. `--debug` writes submission details
+to stderr; it is not a USB packet trace or printer-status log. Exit 0 confirms
+submission only, not a printed label. No automatic payload retry is performed.
+
+## Current limitations
+
+- Direct USB currently accepts only PL2305 `067b:2305`, not arbitrary USB printers.
+- CUPS on the tested macOS adapter remains unreliable; queue recreation is not a
+  proven transport fix. Windows print queues are not implemented.
+- Serial and generic model profiles lack physical test evidence here.
+- No physical completion polling, automatic calibration, cutting, network backend
+  or background/async printing is implemented.
+- Gap, black-mark and continuous media commands exist, but current successful
+  hardware records use gap labels. Exact dimensions, margins, other media modes,
+  fault recovery and other operating systems still need hardware validation.
+
 ## Development
 
 ```sh
@@ -201,7 +294,12 @@ ruff format --check src tests
 python -m build
 ```
 
-Tests use synthetic images and fake serial ports; they never print a label.
+Tests use synthetic images, fake serial/USB devices and mocked CUPS commands;
+they never print a label. Coverage includes raster encoding, offline CLI workflows,
+partial writes, timeouts, USB reset handling and queue recreation. Install
+`.[dev,usb]` to include optional USB runtime dependencies for local development.
+There is currently no repository CI workflow; local tests do not establish
+hardware compatibility on other operating systems.
 
 ## References
 
@@ -281,11 +379,11 @@ Python: `Printer("TTP342", backend="cups")`, or
 `send(data, "TTP342", backend_identifier="cups")`. Serial-specific keyword
 arguments are not accepted by the CUPS API.
 
-`pytsc discover` and Python `discover()` scan both serial and CUPS by default.
+`pytsc discover` and Python `discover()` scan serial, CUPS and PyUSB by default.
 Each record includes its `backend`; failures of one backend appear as warnings
-without discarding results from the other. Explicit `-b` or `PYTSC_BACKEND` restricts
-the CLI scan. Printing automatically selects CUPS for `usb://` and `cups://` identifiers,
-and serial otherwise. Bare CUPS queue names require `-b cups`. Explicit `-b` or
+without discarding results from the others. Explicit `-b` or `PYTSC_BACKEND` restricts
+the CLI scan. Printing selects PyUSB for `pyusb://`, CUPS for `usb://` and
+`cups://`, and serial otherwise. Bare CUPS queue names require `-b cups`. Explicit `-b` or
 `PYTSC_BACKEND` takes precedence over inference. Python `Printer` and `send()`
 use the same inference when no backend is provided.
 Discovery never creates queues. USB queue resolution/recreation happens only when
@@ -397,3 +495,9 @@ native/BITMAP comparison labels, a full dithered test image, and a subsequent
 four-label batch and a 90 mm width test reported as normal. This validates
 the tested path, but does not isolate whether unidirectional mode, pacing, or
 bypassing CUPS resolved the earlier corruption.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE). Third-party packages
+remain covered by their own licenses. The projects listed under References inform
+the API and protocol research; they are not bundled printer drivers.

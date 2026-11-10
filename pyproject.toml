@@ -5,8 +5,10 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "pytsc"
 version = "0.1.0a1"
-description = "TSPL label printing with a brother_ql-inspired API and serial transport"
+description = "TSPL label printing with a brother_ql-inspired API and serial, CUPS, and USB transports"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = ["Pillow>=10,<14", "click>=8.1,<9", "pyserial>=3.5,<4"]
 
