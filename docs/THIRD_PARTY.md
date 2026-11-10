@@ -59,13 +59,6 @@ This review did not audit the license provenance of the fonts used in those imag
 - `backends/cups.py` manages queues and submits bytes through subprocess calls.
   It does not implement Apple's IOKit transport or port it to Python.
 
-## Projects surveyed but not used in the implementation
-
-[thermal-label/tspl-core](https://github.com/thermal-label/tspl-core) and
-[RunTheWall/tspl-cups-driver](https://github.com/RunTheWall/tspl-cups-driver)
-identify their projects as MIT. They were surveyed after the current implementation;
-no code from either is incorporated. This is not an audit of their dependencies.
-
 ## Runtime dependencies
 
 These are installed separately, not vendored in pytsc's wheel or source tree.

@@ -301,16 +301,6 @@ partial writes, timeouts, USB reset handling and queue recreation. Install
 There is currently no repository CI workflow; local tests do not establish
 hardware compatibility on other operating systems.
 
-## References
-
-- [brother_ql](https://github.com/pklaus/brother_ql): API/CLI design reference; see the source review below.
-- [pyniim](https://github.com/buganini/pyniim): convenience API and result conventions; local checkout reviewed.
-- [tsclib](https://pypi.org/project/tsclib/): native TSPL operations reference; this project does not wrap its Windows DLL.
-- [TSC downloads](https://usca.tscprinters.com/en/downloads): TSPL/TSPL2 programming manuals.
-- [TSC TSPL/TSPL2 manual, mirrored PDF](https://manuals.plus/m/f21e1cc8c532dfa7d3838ac4677bfd4b438f37282bd5460b0292b179a72fdec7_optim.pdf): BITMAP width in bytes, height in dots and mode 0 overwrite.
-- [TSC TTP-243/342 specification sheet, mirrored PDF](https://autoid.com.hk/pos/labelprinter/tsc/ttp-243.pdf): TTP-342 12 dots/mm profile basis; does not establish elitek firmware compatibility.
-- [pyserial API](https://pyserial.readthedocs.io/en/latest/pyserial_api.html): serial parameters and transport behavior.
-
 ## macOS / Linux: CUPS USB printing
 
 USB-to-IEEE-1284 adapters are CUPS printer devices, not serial ports. Use the
@@ -495,6 +485,18 @@ native/BITMAP comparison labels, a full dithered test image, and a subsequent
 four-label batch and a 90 mm width test reported as normal. This validates
 the tested path, but does not isolate whether unidirectional mode, pacing, or
 bypassing CUPS resolved the earlier corruption.
+
+## References
+
+- [brother_ql](https://github.com/pklaus/brother_ql) ([GPLv3-or-later](https://github.com/pklaus/brother_ql/blob/master/setup.py)): API and CLI design reference; not a runtime dependency.
+- [pyniim](https://github.com/buganini/pyniim) ([MIT](https://github.com/buganini/pyniim/blob/main/LICENSE)): convenience API and result conventions; not a runtime dependency.
+- [raster-tspl-rs](https://github.com/cbiffle/raster-tspl-rs) ([MPL-2.0](https://github.com/cbiffle/raster-tspl-rs/blob/main/src/main.rs)): bitmap layout and command-framing reference; no implementation incorporated and not a runtime dependency.
+- [tsclib](https://pypi.org/project/tsclib/) (Python project declares MIT; vendor DLL license not established): native TSPL API reference; pytsc does not use its DLL or wrapper.
+- [RayforLoy/TSC-Printer](https://github.com/RayforLoy/TSC-Printer) (no explicit license found): binary bitmap troubleshooting reference; its DLL workaround was examined but not adopted.
+- [TSC downloads](https://usca.tscprinters.com/en/downloads): TSPL/TSPL2 programming manuals; vendor documents, open-source license not established.
+- [TSC TSPL/TSPL2 manual, mirrored PDF](https://manuals.plus/m/f21e1cc8c532dfa7d3838ac4677bfd4b438f37282bd5460b0292b179a72fdec7_optim.pdf): BITMAP byte width, height and overwrite-mode reference; vendor document.
+- [TSC TTP-243/342 specification sheet, mirrored PDF](https://autoid.com.hk/pos/labelprinter/tsc/ttp-243.pdf): TTP-342 12 dots/mm profile basis; vendor document, not proof of elitek firmware compatibility.
+- [pyserial API](https://pyserial.readthedocs.io/en/latest/pyserial_api.html) ([BSD-3-Clause](https://github.com/pyserial/pyserial/blob/master/LICENSE.txt)): serial transport dependency and API reference.
 
 ## License
 
