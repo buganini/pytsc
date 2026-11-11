@@ -6,7 +6,7 @@ from .labels import LabelsManager
 from .raster import TSPLRaster, integer
 
 
-def prepare_image(source, size, *, rotate="auto", threshold=70, dither=False, fit="strict"):
+def prepare_image(source, size, *, rotate="auto", threshold=70, dither=True, fit="strict"):
     if isinstance(source, Image.Image):
         image = source.copy()
     else:
@@ -46,7 +46,7 @@ def convert(
     *,
     rotate="auto",
     threshold=70,
-    dither=False,
+    dither=True,
     fit="strict",
     copies=1,
     gap=2,

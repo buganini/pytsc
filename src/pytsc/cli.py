@@ -199,7 +199,7 @@ def image_options(fn):
                 default=70,
                 help="Lower values print more black, as in brother_ql.",
             ),
-            click.option("-d", "--dither", is_flag=True),
+            click.option("-d/-D", "--dither/--no-dither", default=True),
             click.option(
                 "--raster-mode",
                 type=click.Choice(["bitmap", "bar"]),

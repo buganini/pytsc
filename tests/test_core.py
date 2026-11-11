@@ -48,8 +48,8 @@ def test_rotation_transparency_and_file_input():
 
 def test_fit_threshold_dither():
     image = Image.new("L", (1, 1), 128)
-    assert prepare_image(image, (1, 1), threshold=70).getpixel((0, 0)) == 255
-    assert prepare_image(image, (1, 1), threshold=30).getpixel((0, 0)) == 0
+    assert prepare_image(image, (1, 1), threshold=70, dither=False).getpixel((0, 0)) == 255
+    assert prepare_image(image, (1, 1), threshold=30, dither=False).getpixel((0, 0)) == 0
     assert prepare_image(image, (4, 8), fit="contain", dither=True).size == (4, 8)
 
 
